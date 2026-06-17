@@ -6,19 +6,12 @@
 
 ## What works
 
-- Extension activates without errors
-- NearVarPanel class registered as WebviewViewProvider for `nearvar.panel` view
-- `nearvar.openPanel` command registered, bound to Ctrl+Alt+E / Cmd+Alt+E
+- 14 scaffold files created (see active file list below)
 - `npm run compile` passes with zero errors and zero warnings
 
-## What does not work yet
+## What is not built yet
 
-- Panel renders nothing (resolveWebviewView is an empty stub)
-- No variable reading
-- No runbook indexing
-- No paste functionality
-- No nearvar.yaml config reading
-- No AWS profile reading
+- All features — no panel UI, no variable reading, no paste, no config
 
 ## Active file list
 
@@ -42,7 +35,7 @@
 
 ## Last commit
 
-SEP-00: Project scaffold — all 14 files created, compile clean
+9180ae1 (HEAD -> main) — SEP-00: Project scaffold — 14 files, compile clean
 
 ## Next SEP
 
