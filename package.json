@@ -1,0 +1,67 @@
+{
+  "name": "nearvar",
+  "displayName": "NearVar",
+  "description": "NearVar — environment variables, cloud profiles, and runbook commands. Always within reach.",
+  "version": "0.0.1",
+  "publisher": "rehmansherazi",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "environment variables",
+    "runbooks",
+    "terminal",
+    "aws",
+    "devops"
+  ],
+  "activationEvents": [
+    "onView:nearvar.panel"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "nearvar",
+          "title": "NearVar",
+          "icon": "images/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "nearvar": [
+        {
+          "type": "webview",
+          "id": "nearvar.panel",
+          "name": "NearVar"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "nearvar.openPanel",
+        "title": "NearVar: Open Panel"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "nearvar.openPanel",
+        "key": "ctrl+alt+e",
+        "mac": "cmd+alt+e"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.100.0",
+    "@types/node": "22.x",
+    "typescript": "^5.9.3"
+  }
+}
