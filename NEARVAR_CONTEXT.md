@@ -1,17 +1,26 @@
 # NearVar — Current State Snapshot
 
-**Last updated:** SEP-00 — 2026-06-17
+**Last updated:** SEP-01 complete — 2026-06-17
 **Extension version:** 0.0.1
-**Status:** Scaffold complete — compile clean, no features implemented
+**Status:** SEP-01 complete — smoke tested on Linux, all checks passed
 
 ## What works
 
-- 14 scaffold files created (see active file list below)
-- `npm run compile` passes with zero errors and zero warnings
+- Panel opens on Ctrl+Alt+E (Cmd+Alt+E on Mac)
+- CSP using `webview.cspSource` — no hardcoded origins
+- `escapeHtml` applied to all dynamic values (remoteName, homedir)
+- Context bar: execution environment (`local` or remote name) · home directory
+- Welcome card with "Create nearvar.yaml" button when no config file exists
+- "Create nearvar.yaml" writes template file, opens it in editor, refreshes panel
+- Main content placeholder shown when `nearvar.yaml` exists
+- `acquireVsCodeApi()` wired in webview
 
 ## What is not built yet
 
-- All features — no panel UI, no variable reading, no paste, no config
+- Variable reading (bash, .env, AWS) — SEP-04, SEP-06
+- nearvar.yaml config parsing — SEP-03
+- Click-to-paste — SEP-02
+- Document source indexer — SEP-05
 
 ## Active file list
 
@@ -19,8 +28,8 @@
 |------|---------|--------|
 | `package.json` | Extension manifest, keybindings, view registration | Done |
 | `tsconfig.json` | TypeScript compiler config | Done |
-| `src/extension.ts` | Activation stub | Done |
-| `src/panel.ts` | Webview stub | Done |
+| `src/extension.ts` | Activation — registers provider and openPanel command | Done |
+| `src/panel.ts` | WebviewViewProvider — CSP, escapeHtml, context bar, welcome card | Done |
 | `src/bashReader.ts` | Bash variable reader stub | Stub only |
 | `src/configReader.ts` | Config reader stub | Stub only |
 | `.vscodeignore` | Package exclusions | Done |
@@ -35,16 +44,20 @@
 
 ## Last commit
 
-9180ae1 (HEAD -> main) — SEP-00: Project scaffold — 14 files, compile clean
+83a19ab — SEP-01: Panel scaffold — CSP, escapeHtml, context bar, welcome card, config creation
+
+## Smoke test notes
+
+- SEP-01 smoke test passed on Linux (2026-06-17): context bar, welcome card, config creation, auto-open in editor, panel switch, zero console errors
+- EDH requires an open folder to test config creation flow
 
 ## Next SEP
 
-**SEP-01: Panel scaffold**
-- Implement `resolveWebviewView` in `src/panel.ts`
-- CSP meta tag using `${webview.cspSource}`
-- `escapeHtml()` helper written in panel.ts
-- Execution context bar
-- Welcome card with "Create nearvar.yaml" button
+**SEP-02: Static items + paste**
+- Hardcoded item list (at least one per section: runbooks, bash vars, .env, AWS)
+- Click-to-paste using `terminal.sendText(cmd)` — no newline
+- Section dividers matching locked panel section order
+- Paste inserts without executing — verified on Linux
 
 ## Session continuity
 
