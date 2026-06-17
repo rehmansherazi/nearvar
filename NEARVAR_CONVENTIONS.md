@@ -78,12 +78,14 @@ Blocked by VS Code webview sandbox. All confirmations use `vscode.window.showWar
 All paste actions send text to the terminal **without appending a newline**. The command lands in the terminal prompt. The user reviews it and presses Enter to run.
 
 ```typescript
-// Never — executes immediately:
-terminal.sendText(cmd + '\n');
-
-// Always — inserts for review:
+// Never — executes immediately (shouldExecute defaults to true):
 terminal.sendText(cmd);
+
+// Always — inserts for review, no newline appended:
+terminal.sendText(cmd, false);
 ```
+
+Note: the second parameter is named `shouldExecute` (not `addNewLine`) in VS Code ≥ 1.100. Passing `false` suppresses the newline and leaves the text in the prompt for the user to review before pressing Enter.
 
 ## Cross-platform rules — non-negotiable
 
