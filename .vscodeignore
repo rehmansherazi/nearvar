@@ -9,3 +9,5 @@ node_modules/**
 **/*.map
 .gitignore
 tsconfig.json
+.vscode/launch.json
+.vscode/tasks.json
