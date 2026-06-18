@@ -146,3 +146,11 @@ This file is immutable. Every locked decision is recorded here with rationale an
 **Choice:** `ctrl+alt+e` (Linux/Windows), `cmd+alt+e` (macOS)
 **Rationale:** Not taken by VS Code defaults or any installed extension. Matches spec.
 **Verified:** 2026-06-17 (SEP-00)
+
+---
+
+### nearvar.yaml validation: missing sources key is forgiving
+
+**Choice:** Missing `sources` key coerces to safe defaults silently (runbooks: [], bash: false, env: [], aws: false). Only structural errors — YAML parse failure, wrong top-level type, or `sources` being a non-mapping — show the error card.
+**Rationale:** A nearvar.yaml with no sources key is a valid "empty config" state. Erroring on omission punishes users who are scaffolding a file incrementally. Structural errors (parse failure, wrong type) are unambiguous programmer mistakes and warrant the error card.
+**Decision date:** 2026-06-17 (SEP-03)

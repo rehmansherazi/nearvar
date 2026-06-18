@@ -38,6 +38,7 @@ const vscode = __importStar(require("vscode"));
 const os = __importStar(require("os"));
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
+const configReader_1 = require("./configReader");
 function escapeHtml(text) {
     return text
         .replace(/&/g, '&amp;')
@@ -50,6 +51,7 @@ class NearVarPanel {
     _context;
     static viewType = 'nearvar.panel';
     _view;
+    _watcher;
     constructor(_context) {
         this._context = _context;
     }
@@ -81,7 +83,16 @@ class NearVarPanel {
                     break;
             }
         });
+        const folder = vscode.workspace.workspaceFolders?.[0];
+        if (folder) {
+            this._watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(folder, 'nearvar.yaml'));
+            this._watcher.onDidCreate(() => this._refresh());
+            this._watcher.onDidChange(() => this._refresh());
+            this._watcher.onDidDelete(() => this._refresh());
+        }
         webviewView.onDidDispose(() => {
+            this._watcher?.dispose();
+            this._watcher = undefined;
             this._view = undefined;
         });
     }
@@ -138,7 +149,15 @@ class NearVarPanel {
     _getHtml(webview) {
         const context = vscode.env.remoteName ? escapeHtml(vscode.env.remoteName) : 'local';
         const homedir = escapeHtml(os.homedir());
-        const body = this._hasConfig() ? this._mainContent() : this._welcomeCard();
+        let configError;
+        if (this._hasConfig()) {
+            const p = this._configPath();
+            const result = (0, configReader_1.loadConfig)(p);
+            if (!result.ok) {
+                configError = result.error;
+            }
+        }
+        const body = this._hasConfig() ? this._mainContent(configError) : this._welcomeCard();
         return `<!DOCTYPE html>
 <html>
 <head>
@@ -164,6 +183,9 @@ class NearVarPanel {
   .item:hover .copy-btn { opacity: 1; }
   .copy-btn:hover { background: var(--vscode-toolbar-hoverBackground); color: var(--vscode-foreground); }
   .divider { height: 1px; background: var(--vscode-sideBarSectionHeader-border); margin: 6px 0; }
+  .error-card { border: 1px solid var(--vscode-inputValidation-errorBorder); border-radius: 3px; padding: 8px 10px; margin-bottom: 10px; }
+  .error-title { font-size: 11px; font-weight: 600; color: var(--vscode-inputValidation-errorForeground, #f48771); margin-bottom: 4px; }
+  .error-msg { font-size: 11px; color: var(--vscode-descriptionForeground); font-family: var(--vscode-editor-font-family, monospace); word-break: break-word; }
 </style>
 </head>
 <body>
@@ -201,7 +223,10 @@ class NearVarPanel {
     <button onclick="createConfig()">Create nearvar.yaml</button>
   </div>`;
     }
-    _mainContent() {
+    _mainContent(error) {
+        const errorCard = error
+            ? `<div class="error-card"><div class="error-title">nearvar.yaml error</div><div class="error-msg">${escapeHtml(error)}</div></div>`
+            : '';
         const item = (label, value) => {
             const el = escapeHtml(label);
             const ev = escapeHtml(value);
@@ -214,7 +239,7 @@ class NearVarPanel {
                 `</div>`;
         };
         const section = (title, items) => `<div class="section-label">${escapeHtml(title)}</div>${items}`;
-        return [
+        return errorCard + [
             section('Runbooks', item('Check pods', 'kubectl get pods -n production')),
             '<div class="divider"></div>',
             section('Bash Variables', item('DATABASE_URL', '$DATABASE_URL')),

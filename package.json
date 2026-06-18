@@ -60,8 +60,12 @@
     "watch": "tsc -watch -p ./"
   },
   "devDependencies": {
-    "@types/vscode": "^1.100.0",
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "22.x",
+    "@types/vscode": "^1.100.0",
     "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "js-yaml": "^4.2.0"
   }
 }

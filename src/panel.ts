@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as os from 'os';
 import * as fs from 'fs';
 import * as path from 'path';
+import { loadConfig } from './configReader';
 
 function escapeHtml(text: string): string {
     return text
@@ -15,6 +16,7 @@ function escapeHtml(text: string): string {
 export class NearVarPanel implements vscode.WebviewViewProvider {
     static readonly viewType = 'nearvar.panel';
     private _view?: vscode.WebviewView;
+    private _watcher?: vscode.FileSystemWatcher;
 
     constructor(private readonly _context: vscode.ExtensionContext) {}
 
@@ -51,7 +53,19 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
             }
         });
 
+        const folder = vscode.workspace.workspaceFolders?.[0];
+        if (folder) {
+            this._watcher = vscode.workspace.createFileSystemWatcher(
+                new vscode.RelativePattern(folder, 'nearvar.yaml')
+            );
+            this._watcher.onDidCreate(() => this._refresh());
+            this._watcher.onDidChange(() => this._refresh());
+            this._watcher.onDidDelete(() => this._refresh());
+        }
+
         webviewView.onDidDispose(() => {
+            this._watcher?.dispose();
+            this._watcher = undefined;
             this._view = undefined;
         });
     }
@@ -109,7 +123,13 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
     private _getHtml(webview: vscode.Webview): string {
         const context = vscode.env.remoteName ? escapeHtml(vscode.env.remoteName) : 'local';
         const homedir = escapeHtml(os.homedir());
-        const body = this._hasConfig() ? this._mainContent() : this._welcomeCard();
+        let configError: string | undefined;
+        if (this._hasConfig()) {
+            const p = this._configPath()!;
+            const result = loadConfig(p);
+            if (!result.ok) { configError = result.error; }
+        }
+        const body = this._hasConfig() ? this._mainContent(configError) : this._welcomeCard();
 
         return `<!DOCTYPE html>
 <html>
@@ -136,6 +156,9 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
   .item:hover .copy-btn { opacity: 1; }
   .copy-btn:hover { background: var(--vscode-toolbar-hoverBackground); color: var(--vscode-foreground); }
   .divider { height: 1px; background: var(--vscode-sideBarSectionHeader-border); margin: 6px 0; }
+  .error-card { border: 1px solid var(--vscode-inputValidation-errorBorder); border-radius: 3px; padding: 8px 10px; margin-bottom: 10px; }
+  .error-title { font-size: 11px; font-weight: 600; color: var(--vscode-inputValidation-errorForeground, #f48771); margin-bottom: 4px; }
+  .error-msg { font-size: 11px; color: var(--vscode-descriptionForeground); font-family: var(--vscode-editor-font-family, monospace); word-break: break-word; }
 </style>
 </head>
 <body>
@@ -175,7 +198,10 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
   </div>`;
     }
 
-    private _mainContent(): string {
+    private _mainContent(error?: string): string {
+        const errorCard = error
+            ? `<div class="error-card"><div class="error-title">nearvar.yaml error</div><div class="error-msg">${escapeHtml(error)}</div></div>`
+            : '';
         const item = (label: string, value: string) => {
             const el = escapeHtml(label);
             const ev = escapeHtml(value);
@@ -190,7 +216,7 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
         const section = (title: string, items: string) =>
             `<div class="section-label">${escapeHtml(title)}</div>${items}`;
 
-        return [
+        return errorCard + [
             section('Runbooks', item('Check pods', 'kubectl get pods -n production')),
             '<div class="divider"></div>',
             section('Bash Variables', item('DATABASE_URL', '$DATABASE_URL')),
