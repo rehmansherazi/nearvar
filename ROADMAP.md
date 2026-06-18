@@ -7,7 +7,7 @@
 | SEP-00 | Project scaffold | ✅ done | package.json, tsconfig, empty src files, all 7 doc files, compile clean |
 | SEP-01 | Panel scaffold | ✅ done | Webview opens, CSP + escapeHtml from day one, context bar, welcome card |
 | SEP-02 | Static items + paste | ✅ done | Hardcoded items, click-to-paste (insert without execute), all platforms |
-| SEP-03 | nearvar.yaml config reader | ⬜ planned | Read config, validate, auto-reload on change, welcome card on first run |
+| SEP-03 | nearvar.yaml config reader | ✅ done | Read config, validate, auto-reload on change, welcome card on first run |
 | SEP-04 | Bash + .env variable reader | ⬜ planned | Parse ~/.bashrc, ~/.bash_profile, .env files, dynamic badge for $() |
 | SEP-05 | Document source indexer | ⬜ planned | Index fenced bash blocks from markdown, frontmatter opt-in, file watcher |
 | SEP-06 | AWS + cloud profiles | ⬜ planned | Read ~/.aws/config, display profiles and regions, cross-platform paths |
