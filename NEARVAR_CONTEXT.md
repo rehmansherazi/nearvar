@@ -1,8 +1,8 @@
 # NearVar — Current State Snapshot
 
-**Last updated:** SEP-05 complete — 2026-06-17
+**Last updated:** SEP-05b+SEP-06-prep schema update complete — 2026-06-18
 **Extension version:** 0.0.1
-**Status:** SEP-05 complete — smoke tested on Linux, all 12 checklist items passed
+**Status:** Frontmatter opt-in dropped; new runbooks schema (recursive/exclude/shorthand) smoke tested on Linux, all 9 steps passed. awsReader.ts written, not yet smoke tested.
 
 ## What works
 
@@ -26,8 +26,11 @@
 - Variables with `$()` in value shown with `⚠ dynamic` badge; clicking pastes `$VAR_NAME`; value never shown
 - Bash and .env sections hidden entirely when source disabled or returns no vars
 - `readDocSources()` indexes fenced bash blocks from `.md` files in `sources.runbooks`
-- Folder sources: recursive `.md` scan, `bashdock: true` frontmatter gate, `relPath` relative to source folder
-- File sources: indexed directly, no frontmatter check
+- Folder sources: recursive `.md` scan (no frontmatter gate), `relPath` relative to source folder
+- File sources: indexed directly
+- `recursive: false` limits scan to top-level `.md` files only (no subfolder traversal)
+- `exclude` patterns (glob, minimatch) matched against relPath from source root; case-sensitive
+- String shorthand in `sources.runbooks` expands to `{ path, recursive: true, exclude: [] }`
 - CRLF normalised; 512 KB guard per file; blocks with no preceding heading skipped silently
 - Single-line blocks → normal item; multi-line blocks → collapsible group (▶/▼ toggle), each line independently pasteable
 - Relative path shown as `· filename.md` on items; absolute path in hover tooltip (title attr)
@@ -37,7 +40,7 @@
 
 ## What is not built yet
 
-- AWS profile reading — SEP-06
+- AWS profile reading panel integration — SEP-06 smoke test pending (awsReader.ts is written)
 
 ## Active file list
 
@@ -48,8 +51,9 @@
 | `src/extension.ts` | Activation — registers provider and openPanel command | Done |
 | `src/panel.ts` | WebviewViewProvider — CSP, escapeHtml, context bar, welcome card, sections, paste, copy, doc groups | Done |
 | `src/bashReader.ts` | Bash + .env variable reader — export/VAR=value parsing, quote strip, dynamic badge, 512 KB guard | Done |
-| `src/configReader.ts` | Config reader — js-yaml parse, size guard, validation, silent-default coercion | Done |
-| `src/docReader.ts` | Document source indexer — fenced block extraction, frontmatter gate, folder scan, source watchers | Done |
+| `src/configReader.ts` | Config reader — js-yaml parse, RunbookEntry type, toRunbookArray(), size guard, validation | Done |
+| `src/docReader.ts` | Document source indexer — fenced block extraction, no frontmatter gate, recursive/exclude via minimatch | Done |
+| `src/awsReader.ts` | AWS profile reader — INI parser, ~/.aws/config + credentials, credential values never stored | Written, not smoke tested |
 | `.vscodeignore` | Package exclusions | Done |
 | `images/icon.svg` | Activity bar icon | Done |
 | `README.md` | Public documentation | Done |
@@ -62,7 +66,7 @@
 
 ## Last commit
 
-e9ac31b — SEP-05: Document source indexer — docReader, fenced block extraction, collapsible groups, source watchers
+904b1e8 — SEP-05b+SEP-06-prep: drop frontmatter, add recursive/exclude/shorthand schema, minimatch
 
 ## Smoke test notes
 
@@ -71,6 +75,7 @@ e9ac31b — SEP-05: Document source indexer — docReader, fenced block extracti
 - SEP-03 smoke test passed on Linux (2026-06-17): all 10 steps verified — config load, error card, FileSystemWatcher auto-reload, missing sources key silently coerces to defaults (no error card)
 - SEP-04 smoke test passed on Linux (2026-06-17): all 8 checklist items verified — real bash vars from ~/.bashrc, dynamic badge + $VAR_NAME paste, empty section hiding, missing .env silent handling, full SEP-02/03 regression passed
 - SEP-05 smoke test passed on Linux (2026-06-17): all 12 checklist items verified — frontmatter gate, untitled block skipping, multi-line collapsible groups, inline error badges, FileSystemWatcher auto-reload, full SEP-02/03/04 regression passed
+- SEP-05b schema update smoke test passed on Linux (2026-06-18): all 9 steps verified — frontmatter removal, string shorthand, recursive: false, exclude glob patterns via minimatch, error badge on missing path
 - EDH requires an open folder to test config creation flow
 - `terminal.sendText` second parameter is `shouldExecute` (not `addNewLine`) in VS Code ≥ 1.100 — pass `false` to insert without executing. VS Code API docs website lags behind; canonical source is vscode.d.ts on GitHub.
 - Missing `sources` key in nearvar.yaml is forgiving — coerces to empty defaults, no error card. Only parse failure, wrong top-level type, or `sources` being a non-mapping shows the error card.
