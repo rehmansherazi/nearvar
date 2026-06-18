@@ -40,6 +40,7 @@ const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const configReader_1 = require("./configReader");
 const bashReader_1 = require("./bashReader");
+const docReader_1 = require("./docReader");
 function escapeHtml(text) {
     return text
         .replace(/&/g, '&amp;')
@@ -52,7 +53,8 @@ class NearVarPanel {
     _context;
     static viewType = 'nearvar.panel';
     _view;
-    _watcher;
+    _yamlWatcher;
+    _docWatchers = [];
     constructor(_context) {
         this._context = _context;
     }
@@ -86,20 +88,59 @@ class NearVarPanel {
         });
         const folder = vscode.workspace.workspaceFolders?.[0];
         if (folder) {
-            this._watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(folder, 'nearvar.yaml'));
-            this._watcher.onDidCreate(() => this._refresh());
-            this._watcher.onDidChange(() => this._refresh());
-            this._watcher.onDidDelete(() => this._refresh());
+            this._yamlWatcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(folder, 'nearvar.yaml'));
+            this._yamlWatcher.onDidCreate(() => this._refresh());
+            this._yamlWatcher.onDidChange(() => this._refresh());
+            this._yamlWatcher.onDidDelete(() => this._refresh());
         }
+        this._setupDocWatchers();
         webviewView.onDidDispose(() => {
-            this._watcher?.dispose();
-            this._watcher = undefined;
+            this._yamlWatcher?.dispose();
+            this._yamlWatcher = undefined;
+            this._docWatchers.forEach(w => w.dispose());
+            this._docWatchers = [];
             this._view = undefined;
         });
     }
     _refresh() {
+        this._docWatchers.forEach(w => w.dispose());
+        this._docWatchers = [];
         if (this._view) {
             this._view.webview.html = this._getHtml(this._view.webview);
+        }
+        this._setupDocWatchers();
+    }
+    _setupDocWatchers() {
+        if (!this._hasConfig()) {
+            return;
+        }
+        const p = this._configPath();
+        const result = (0, configReader_1.loadConfig)(p);
+        if (!result.ok) {
+            return;
+        }
+        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        if (!workspaceRoot) {
+            return;
+        }
+        for (const rel of result.config.sources.runbooks) {
+            const abs = path.isAbsolute(rel) ? rel : path.join(workspaceRoot, rel);
+            let stat;
+            try {
+                stat = fs.statSync(abs);
+            }
+            catch { /* not found */ }
+            if (!stat) {
+                continue;
+            }
+            const pattern = stat.isDirectory()
+                ? new vscode.RelativePattern(vscode.Uri.file(abs), '**/*.md')
+                : new vscode.RelativePattern(vscode.Uri.file(path.dirname(abs)), path.basename(abs));
+            const w = vscode.workspace.createFileSystemWatcher(pattern);
+            w.onDidCreate(() => this._refresh());
+            w.onDidChange(() => this._refresh());
+            w.onDidDelete(() => this._refresh());
+            this._docWatchers.push(w);
         }
     }
     _configPath() {
@@ -192,6 +233,13 @@ class NearVarPanel {
   .error-title { font-size: 11px; font-weight: 600; color: var(--vscode-inputValidation-errorForeground, #f48771); margin-bottom: 4px; }
   .error-msg { font-size: 11px; color: var(--vscode-descriptionForeground); font-family: var(--vscode-editor-font-family, monospace); word-break: break-word; }
   .dynamic { color: var(--vscode-editorWarning-foreground, #cca700); }
+  .block-group { margin: 1px 0; }
+  .block-header { display: flex; align-items: center; padding: 4px 4px; border-radius: 3px; cursor: pointer; gap: 4px; }
+  .block-header:hover { background: var(--vscode-list-hoverBackground); }
+  .block-arrow { flex-shrink: 0; font-size: 10px; width: 12px; text-align: center; color: var(--vscode-descriptionForeground); }
+  .block-source { font-weight: normal; color: var(--vscode-descriptionForeground); font-size: 10px; }
+  .block-lines { padding-left: 16px; }
+  .source-error { font-size: 11px; color: var(--vscode-editorWarning-foreground, #cca700); padding: 3px 4px; }
 </style>
 </head>
 <body>
@@ -216,6 +264,14 @@ class NearVarPanel {
       btn.addEventListener('click', function(e) {
         e.stopPropagation();
         copy(this.dataset.value);
+      });
+    });
+    document.querySelectorAll('.block-header').forEach(function(h) {
+      h.addEventListener('click', function() {
+        var lines = this.nextElementSibling;
+        var arrow = this.querySelector('.block-arrow');
+        lines.hidden = !lines.hidden;
+        arrow.textContent = lines.hidden ? '▶' : '▼';
       });
     });
   </script>
@@ -267,6 +323,46 @@ class NearVarPanel {
             ? section('Bash Variables', bashVars.map(varItem).join(''))
             : '';
         const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        const docResults = workspaceRoot && config.sources.runbooks.length > 0
+            ? (0, docReader_1.readDocSources)(config.sources.runbooks, workspaceRoot)
+            : [];
+        const renderBlock = (b) => {
+            const eLabel = escapeHtml(b.label);
+            const eRel = escapeHtml(b.relPath);
+            const eAbs = escapeHtml(b.absPath);
+            if (b.lines.length === 1) {
+                const ev = escapeHtml(b.lines[0]);
+                return `<div class="item" data-value="${ev}" title="${eAbs}">` +
+                    `<div class="item-body">` +
+                    `<span class="item-label">${eLabel}<span class="block-source"> · ${eRel}</span></span>` +
+                    `<span class="item-value">${ev}</span>` +
+                    `</div>` +
+                    `<button class="copy-btn" data-value="${ev}">Copy</button>` +
+                    `</div>`;
+            }
+            const children = b.lines.map(line => {
+                const ev = escapeHtml(line);
+                return `<div class="item" data-value="${ev}">` +
+                    `<div class="item-body"><span class="item-value">${ev}</span></div>` +
+                    `<button class="copy-btn" data-value="${ev}">Copy</button>` +
+                    `</div>`;
+            }).join('');
+            return `<div class="block-group">` +
+                `<div class="block-header" title="${eAbs}">` +
+                `<span class="block-arrow">▶</span>` +
+                `<div class="item-body">` +
+                `<span class="item-label">${eLabel}<span class="block-source"> · ${eRel}</span></span>` +
+                `<span class="item-value">${b.lines.length} commands</span>` +
+                `</div></div>` +
+                `<div class="block-lines" hidden>${children}</div>` +
+                `</div>`;
+        };
+        const docItems = docResults.flatMap(sr => sr.error
+            ? [`<div class="source-error">&#9888; ${escapeHtml(sr.sourcePath)} — ${escapeHtml(sr.error)}</div>`]
+            : sr.blocks.map(renderBlock));
+        const runbooksSection = docItems.length > 0
+            ? section('Runbooks', docItems.join(''))
+            : '';
         const envVars = [];
         if (workspaceRoot) {
             for (const rel of config.sources.env) {
@@ -277,7 +373,7 @@ class NearVarPanel {
             ? section('.env Variables', envVars.map(varItem).join(''))
             : '';
         return [
-            section('Runbooks', item('Check pods', 'kubectl get pods -n production')),
+            runbooksSection,
             '<div class="divider"></div>',
             bashSection,
             envSection,

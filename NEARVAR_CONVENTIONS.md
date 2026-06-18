@@ -178,6 +178,12 @@ Run through this checklist explicitly. Nothing ships without it.
 
 ## Known limitations (v1)
 
+### Fenced bash blocks with no preceding heading are skipped
+
+`extractBlocks` only indexes a block when `currentHeading` is non-empty at the time ` ```bash` is encountered. Blocks that appear before any heading in the file are silently dropped. Add a heading above the block to surface it in NearVar.
+
+---
+
 ### Escaped quotes inside variable values are not handled
 
 `export FOO="bar\"baz"` and `export FOO='it'\''s'` will parse incorrectly — the value may include the literal quote characters or truncate early. Documenting only unescaped, single-quoted or double-quoted values is the safe path in v1. Multi-line values (via `\` continuation) are also not parsed.
