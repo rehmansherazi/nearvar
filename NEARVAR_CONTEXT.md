@@ -1,8 +1,8 @@
 # NearVar — Current State Snapshot
 
-**Last updated:** SEP-05b+SEP-06-prep schema update complete — 2026-06-18
+**Last updated:** SEP-06 complete — 2026-06-18
 **Extension version:** 0.0.1
-**Status:** Frontmatter opt-in dropped; new runbooks schema (recursive/exclude/shorthand) smoke tested on Linux, all 9 steps passed. awsReader.ts written, not yet smoke tested.
+**Status:** SEP-06 complete — smoke tested on Linux, all 7 checklist items passed.
 
 ## What works
 
@@ -40,7 +40,9 @@
 
 ## What is not built yet
 
-- AWS profile reading panel integration — SEP-06 smoke test pending (awsReader.ts is written)
+- Editor CodeLens — SEP-07 (v2)
+- Remote URL sources — SEP-08 (v2)
+- Keyboard navigation — SEP-09 (v2)
 
 ## Active file list
 
@@ -53,7 +55,7 @@
 | `src/bashReader.ts` | Bash + .env variable reader — export/VAR=value parsing, quote strip, dynamic badge, 512 KB guard | Done |
 | `src/configReader.ts` | Config reader — js-yaml parse, RunbookEntry type, toRunbookArray(), size guard, validation | Done |
 | `src/docReader.ts` | Document source indexer — fenced block extraction, no frontmatter gate, recursive/exclude via minimatch | Done |
-| `src/awsReader.ts` | AWS profile reader — INI parser, ~/.aws/config + credentials, credential values never stored | Written, not smoke tested |
+| `src/awsReader.ts` | AWS profile reader — INI parser, ~/.aws/config + credentials, credential values never stored | Done |
 | `.vscodeignore` | Package exclusions | Done |
 | `images/icon.svg` | Activity bar icon | Done |
 | `README.md` | Public documentation | Done |
@@ -66,7 +68,7 @@
 
 ## Last commit
 
-904b1e8 — SEP-05b+SEP-06-prep: drop frontmatter, add recursive/exclude/shorthand schema, minimatch
+432ad21 — SEP-06: AWS profile reader — real profiles, regions, credentials names only, --profile paste value
 
 ## Smoke test notes
 
@@ -76,13 +78,14 @@
 - SEP-04 smoke test passed on Linux (2026-06-17): all 8 checklist items verified — real bash vars from ~/.bashrc, dynamic badge + $VAR_NAME paste, empty section hiding, missing .env silent handling, full SEP-02/03 regression passed
 - SEP-05 smoke test passed on Linux (2026-06-17): all 12 checklist items verified — frontmatter gate, untitled block skipping, multi-line collapsible groups, inline error badges, FileSystemWatcher auto-reload, full SEP-02/03/04 regression passed
 - SEP-05b schema update smoke test passed on Linux (2026-06-18): all 9 steps verified — frontmatter removal, string shorthand, recursive: false, exclude glob patterns via minimatch, error badge on missing path
+- SEP-06 smoke test passed on Linux (2026-06-18): all 7 checklist items verified — real AWS profiles from ~/.aws/config, regions displayed, credentials-only profiles with region: '', --profile paste value, aws: false hides section, full regression of all previous SEPs passed
 - EDH requires an open folder to test config creation flow
 - `terminal.sendText` second parameter is `shouldExecute` (not `addNewLine`) in VS Code ≥ 1.100 — pass `false` to insert without executing. VS Code API docs website lags behind; canonical source is vscode.d.ts on GitHub.
 - Missing `sources` key in nearvar.yaml is forgiving — coerces to empty defaults, no error card. Only parse failure, wrong top-level type, or `sources` being a non-mapping shows the error card.
 
 ## Next SEP
 
-**SEP-06: AWS + cloud profiles**
+**SEP-07: Editor CodeLens (v2) — not scheduled**
 
 ## Session continuity
 

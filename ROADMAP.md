@@ -11,7 +11,7 @@
 | SEP-04 | Bash + .env variable reader | ✅ done | Parse ~/.bashrc, ~/.bash_profile, .env files, dynamic badge for $() |
 | SEP-05 | Document source indexer | ✅ done | Index fenced bash blocks from markdown, frontmatter opt-in, file watcher |
 | SEP-05b | Schema update | ✅ done | Drop frontmatter gate; add recursive/exclude/shorthand schema; minimatch |
-| SEP-06 | AWS + cloud profiles | ⬜ pending smoke test | awsReader.ts written; panel.ts wired; smoke test not yet run |
+| SEP-06 | AWS + cloud profiles | ✅ done | Read ~/.aws/config + credentials, display profiles/regions, --profile paste value |
 | SEP-07 | Editor CodeLens (inline) | ⬜ v2 | Click commands directly in editor — CodeLens on indexed source files |
 | SEP-08 | Remote URL sources | ⬜ v2 | https sources with timeout, cache, offline badge, no auth |
 | SEP-09 | Keyboard navigation | ⬜ v2 | Arrow keys + Enter to paste in panel |
