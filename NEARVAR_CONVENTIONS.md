@@ -120,10 +120,34 @@ Document sources appear first — above the divider. This reflects incident resp
 ## Document source rules — locked
 
 - Only fenced bash code blocks are indexed. Inline backtick commands are ignored.
-- Folder scanning only indexes markdown files with `bashdock: true` in YAML frontmatter.
+- All `.md` files found in a configured folder are indexed — no frontmatter opt-in required.
+- Exclude patterns (glob, via minimatch) are matched against the relative path from the source root.
 - Section heading immediately above a fenced block becomes the item label.
 - Multi-command blocks: collapsed by default, expand to reveal individual lines.
 - Each line is independently clickable — no paste-all-at-once.
+
+### Runbooks config schema
+
+String shorthand (recursive=true, no excludes):
+```yaml
+sources:
+  runbooks:
+    - ./runbooks/deploy.md          # single file
+    - ~/oncall/playbooks/           # all .md in folder, recursive
+```
+
+Full object form (all options):
+```yaml
+sources:
+  runbooks:
+    - path: ~/oncall/playbooks/
+      recursive: false              # top-level files only
+      exclude:
+        - "*.draft.md"
+        - "archive/*"
+```
+
+`recursive` defaults to `true` when omitted. `exclude` defaults to `[]`.
 
 ## Broken reference states
 
@@ -184,11 +208,32 @@ Run through this checklist explicitly. Nothing ships without it.
 
 ---
 
+### Exclude patterns matched against relative path from source root
+
+`isExcluded()` calls `minimatch(relPath, pattern)` where `relPath` is relative to the configured source folder. Pattern `archive/*` correctly matches `archive/old.md`. Patterns are case-sensitive on Linux and macOS (minimatch default). Windows paths with backslashes are not normalised — use forward-slash patterns.
+
+---
+
+### AWS config inline comments after values are not stripped
+
+`region = us-east-1 # comment` displays as `us-east-1 # comment` in the panel. AWS CLI strips inline comments; the NearVar parser does not. Rare in practice — typical config files do not use inline comments in values.
+
+---
+
 ### Escaped quotes inside variable values are not handled
 
 `export FOO="bar\"baz"` and `export FOO='it'\''s'` will parse incorrectly — the value may include the literal quote characters or truncate early. Documenting only unescaped, single-quoted or double-quoted values is the safe path in v1. Multi-line values (via `\` continuation) are also not parsed.
 
 ---
+
+## Known npm dependencies
+
+| Package | Version | Used for |
+|---------|---------|----------|
+| js-yaml | bundled (vscode) | YAML parsing in configReader.ts |
+| minimatch | 10.2.5 | Glob exclude patterns in docReader.ts |
+
+minimatch 10.2.5 ships bundled TypeScript declarations (`dist/commonjs/index.d.ts`). No `@types/minimatch` needed. Import as `import { minimatch } from 'minimatch'`.
 
 ## Verify-before-implement rule
 

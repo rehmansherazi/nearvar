@@ -154,3 +154,11 @@ This file is immutable. Every locked decision is recorded here with rationale an
 **Choice:** Missing `sources` key coerces to safe defaults silently (runbooks: [], bash: false, env: [], aws: false). Only structural errors — YAML parse failure, wrong top-level type, or `sources` being a non-mapping — show the error card.
 **Rationale:** A nearvar.yaml with no sources key is a valid "empty config" state. Erroring on omission punishes users who are scaffolding a file incrementally. Structural errors (parse failure, wrong type) are unambiguous programmer mistakes and warrant the error card.
 **Decision date:** 2026-06-17 (SEP-03)
+
+---
+
+### Frontmatter opt-in dropped entirely
+
+**Choice:** nearvar.yaml is the sole gating mechanism. Runbook sources support a file/folder allowlist with exclude glob patterns (minimatch) and a recursive flag. recursive defaults to true. String shorthand supported for simple cases.
+**Rationale:** Frontmatter creates wrong ownership coupling — it requires write access to every markdown file you want to surface. This does not work for repos the user does not control (third-party playbooks, shared team wikis, cloned reference repos). nearvar.yaml is the right boundary: the user explicitly lists what to index.
+**Decision date:** 2026-06-18 (SEP-06 spec update)

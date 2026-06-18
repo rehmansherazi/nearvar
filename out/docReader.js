@@ -36,7 +36,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.readDocSources = readDocSources;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
-const yaml = __importStar(require("js-yaml"));
+const minimatch_1 = require("minimatch");
 const MAX_BYTES = 512 * 1024;
 const FENCE_OPEN = /^```bash\s*$/;
 const FENCE_CLOSE = /^```\s*$/;
@@ -97,29 +97,10 @@ function extractBlocks(raw, relPath, absPath) {
     }
     return blocks;
 }
-function hasFrontmatterFlag(raw) {
-    const text = raw.replace(/\r\n/g, '\n');
-    const lines = text.split('\n');
-    if (lines[0] !== '---') {
-        return false;
-    }
-    let i = 1;
-    while (i < lines.length && lines[i] !== '---') {
-        i++;
-    }
-    const fmContent = lines.slice(1, i).join('\n');
-    try {
-        const fm = yaml.load(fmContent);
-        return !!fm &&
-            typeof fm === 'object' &&
-            !Array.isArray(fm) &&
-            fm['bashdock'] === true;
-    }
-    catch {
-        return false;
-    }
+function isExcluded(relPath, exclude) {
+    return exclude.some(pattern => (0, minimatch_1.minimatch)(relPath, pattern));
 }
-function findMdFiles(dir) {
+function findMdFiles(dir, recursive) {
     const results = [];
     let entries;
     try {
@@ -130,8 +111,8 @@ function findMdFiles(dir) {
     }
     for (const entry of entries) {
         const full = path.join(dir, entry.name);
-        if (entry.isDirectory()) {
-            results.push(...findMdFiles(full));
+        if (recursive && entry.isDirectory()) {
+            results.push(...findMdFiles(full, recursive));
         }
         else if (entry.isFile() && entry.name.endsWith('.md')) {
             results.push(full);
@@ -146,24 +127,25 @@ function indexFile(absFile, relPath) {
     }
     return extractBlocks(raw, relPath, absFile);
 }
-function indexFolder(absFolder) {
-    const files = findMdFiles(absFolder);
+function indexFolder(absFolder, recursive, exclude) {
+    const files = findMdFiles(absFolder, recursive);
     const blocks = [];
     for (const absFile of files) {
+        const relPath = path.relative(absFolder, absFile);
+        if (isExcluded(relPath, exclude)) {
+            continue;
+        }
         const raw = readRaw(absFile);
         if (raw === null) {
             continue;
         }
-        if (!hasFrontmatterFlag(raw)) {
-            continue;
-        }
-        const relPath = path.relative(absFolder, absFile);
         blocks.push(...extractBlocks(raw, relPath, absFile));
     }
     return blocks;
 }
 function readDocSources(runbooks, workspaceRoot) {
-    return runbooks.map(sourcePath => {
+    return runbooks.map(entry => {
+        const sourcePath = entry.path;
         const abs = path.isAbsolute(sourcePath)
             ? sourcePath
             : path.join(workspaceRoot, sourcePath);
@@ -176,7 +158,7 @@ function readDocSources(runbooks, workspaceRoot) {
             return { sourcePath, blocks: [], error: `Not found: ${sourcePath}` };
         }
         if (stat.isDirectory()) {
-            return { sourcePath, blocks: indexFolder(abs) };
+            return { sourcePath, blocks: indexFolder(abs, entry.recursive, entry.exclude) };
         }
         else if (stat.isFile()) {
             return { sourcePath, blocks: indexFile(abs, path.basename(abs)) };

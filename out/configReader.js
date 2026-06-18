@@ -69,13 +69,37 @@ function loadConfig(configPath) {
     const s = (src ?? {});
     const config = {
         sources: {
-            runbooks: toStringArray(s.runbooks),
+            runbooks: toRunbookArray(s.runbooks),
             bash: s.bash === true,
             env: toStringArray(s.env),
             aws: s.aws === true,
         },
     };
     return { ok: true, config };
+}
+function toRunbookArray(val) {
+    if (!Array.isArray(val)) {
+        return [];
+    }
+    return val.flatMap((entry) => {
+        if (typeof entry === 'string') {
+            return [{ path: entry, recursive: true, exclude: [] }];
+        }
+        if (entry && typeof entry === 'object' && !Array.isArray(entry)) {
+            const e = entry;
+            if (typeof e['path'] !== 'string') {
+                console.warn('NearVar: skipping runbook entry — missing or invalid path');
+                return [];
+            }
+            return [{
+                    path: e['path'],
+                    recursive: e['recursive'] !== false,
+                    exclude: toStringArray(e['exclude']),
+                }];
+        }
+        console.warn('NearVar: skipping runbook entry — invalid type');
+        return [];
+    });
 }
 function toStringArray(val) {
     if (!Array.isArray(val)) {

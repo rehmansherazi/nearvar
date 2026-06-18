@@ -41,6 +41,7 @@ const path = __importStar(require("path"));
 const configReader_1 = require("./configReader");
 const bashReader_1 = require("./bashReader");
 const docReader_1 = require("./docReader");
+const awsReader_1 = require("./awsReader");
 function escapeHtml(text) {
     return text
         .replace(/&/g, '&amp;')
@@ -123,8 +124,8 @@ class NearVarPanel {
         if (!workspaceRoot) {
             return;
         }
-        for (const rel of result.config.sources.runbooks) {
-            const abs = path.isAbsolute(rel) ? rel : path.join(workspaceRoot, rel);
+        for (const entry of result.config.sources.runbooks) {
+            const abs = path.isAbsolute(entry.path) ? entry.path : path.join(workspaceRoot, entry.path);
             let stat;
             try {
                 stat = fs.statSync(abs);
@@ -173,7 +174,20 @@ class NearVarPanel {
             '# nearvar.yaml — NearVar configuration',
             '',
             'sources:',
-            '  runbooks: []          # paths to markdown runbook files or folders',
+            '  runbooks:',
+            '    # Shorthand — index a single file directly',
+            '    # - ./runbooks/deploy.md',
+            '    #',
+            '    # Shorthand — index all .md files in a folder (recursive)',
+            '    # - ~/oncall/playbooks/procedures/',
+            '    #',
+            '    # Full options — folder with recursive and exclude control',
+            '    # - path: ~/oncall/playbooks/',
+            '    #   recursive: false     # top-level files only',
+            '    #   exclude:',
+            '    #     - "*.draft.md"     # skip draft files',
+            '    #     - "archive/*"      # skip archive subfolder',
+            '    []',
             '  bash: true            # read ~/.bashrc / ~/.bash_profile',
             '  env: []               # .env files relative to this workspace',
             '  aws: true             # read ~/.aws/config profiles',
@@ -372,12 +386,30 @@ class NearVarPanel {
         const envSection = envVars.length > 0
             ? section('.env Variables', envVars.map(varItem).join(''))
             : '';
+        const awsProfiles = config.sources.aws ? (0, awsReader_1.readAwsProfiles)() : [];
+        const awsProfileItem = (p) => {
+            const eName = escapeHtml(p.name);
+            const pasteVal = `--profile ${eName}`;
+            const regionSpan = p.region
+                ? `<span class="item-value">${escapeHtml(p.region)}</span>`
+                : '';
+            return `<div class="item" data-value="${pasteVal}">` +
+                `<div class="item-body">` +
+                `<span class="item-label">${eName}</span>` +
+                regionSpan +
+                `</div>` +
+                `<button class="copy-btn" data-value="${pasteVal}">Copy</button>` +
+                `</div>`;
+        };
+        const awsSection = awsProfiles.length > 0
+            ? section('AWS Profiles', awsProfiles.map(awsProfileItem).join(''))
+            : '';
         return [
             runbooksSection,
             '<div class="divider"></div>',
             bashSection,
             envSection,
-            section('AWS Profiles', item('default', 'aws sts get-caller-identity --profile default')),
+            awsSection,
             '<div class="divider"></div>',
             section('Custom', item('Running containers', 'docker ps -a')),
         ].join('');

@@ -1,0 +1,19 @@
+# nearvar.yaml — NearVar configuration
+sources:
+  runbooks:
+    # Shorthand — index a single file directly
+    # - ./runbooks/deploy.md
+    #
+    # Shorthand — index all .md files in a folder (recursive)
+    # - ~/oncall/playbooks/procedures/
+    #
+    # Full options — folder with recursive and exclude control
+    # - path: ~/oncall/playbooks/
+    #   recursive: false     # top-level files only
+    #   exclude:
+    #     - "*.draft.md"     # skip draft files
+    #     - "archive/*"      # skip archive subfolder
+    []
+  bash: true
+  env: []
+  aws: true

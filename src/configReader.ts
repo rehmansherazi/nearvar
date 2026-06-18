@@ -3,9 +3,15 @@ import * as yaml from 'js-yaml';
 
 const MAX_BYTES = 512 * 1024;
 
+export interface RunbookEntry {
+    path: string;
+    recursive: boolean;
+    exclude: string[];
+}
+
 export interface NearVarConfig {
     sources: {
-        runbooks: string[];
+        runbooks: RunbookEntry[];
         bash: boolean;
         env: string[];
         aws: boolean;
@@ -52,7 +58,7 @@ export function loadConfig(configPath: string): ConfigResult {
 
     const config: NearVarConfig = {
         sources: {
-            runbooks: toStringArray(s.runbooks),
+            runbooks: toRunbookArray(s.runbooks),
             bash: s.bash === true,
             env: toStringArray(s.env),
             aws: s.aws === true,
@@ -60,6 +66,29 @@ export function loadConfig(configPath: string): ConfigResult {
     };
 
     return { ok: true, config };
+}
+
+function toRunbookArray(val: unknown): RunbookEntry[] {
+    if (!Array.isArray(val)) { return []; }
+    return val.flatMap((entry): RunbookEntry[] => {
+        if (typeof entry === 'string') {
+            return [{ path: entry, recursive: true, exclude: [] }];
+        }
+        if (entry && typeof entry === 'object' && !Array.isArray(entry)) {
+            const e = entry as Record<string, unknown>;
+            if (typeof e['path'] !== 'string') {
+                console.warn('NearVar: skipping runbook entry — missing or invalid path');
+                return [];
+            }
+            return [{
+                path: e['path'] as string,
+                recursive: e['recursive'] !== false,
+                exclude: toStringArray(e['exclude']),
+            }];
+        }
+        console.warn('NearVar: skipping runbook entry — invalid type');
+        return [];
+    });
 }
 
 function toStringArray(val: unknown): string[] {

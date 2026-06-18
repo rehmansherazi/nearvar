@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import * as yaml from 'js-yaml';
+import { minimatch } from 'minimatch';
+import { RunbookEntry } from './configReader';
 
 const MAX_BYTES = 512 * 1024;
 
@@ -68,25 +69,11 @@ function extractBlocks(raw: string, relPath: string, absPath: string): DocBlock[
     return blocks;
 }
 
-function hasFrontmatterFlag(raw: string): boolean {
-    const text = raw.replace(/\r\n/g, '\n');
-    const lines = text.split('\n');
-    if (lines[0] !== '---') { return false; }
-    let i = 1;
-    while (i < lines.length && lines[i] !== '---') { i++; }
-    const fmContent = lines.slice(1, i).join('\n');
-    try {
-        const fm = yaml.load(fmContent);
-        return !!fm &&
-            typeof fm === 'object' &&
-            !Array.isArray(fm) &&
-            (fm as Record<string, unknown>)['bashdock'] === true;
-    } catch {
-        return false;
-    }
+function isExcluded(relPath: string, exclude: string[]): boolean {
+    return exclude.some(pattern => minimatch(relPath, pattern));
 }
 
-function findMdFiles(dir: string): string[] {
+function findMdFiles(dir: string, recursive: boolean): string[] {
     const results: string[] = [];
     let entries: fs.Dirent[];
     try {
@@ -96,8 +83,8 @@ function findMdFiles(dir: string): string[] {
     }
     for (const entry of entries) {
         const full = path.join(dir, entry.name);
-        if (entry.isDirectory()) {
-            results.push(...findMdFiles(full));
+        if (recursive && entry.isDirectory()) {
+            results.push(...findMdFiles(full, recursive));
         } else if (entry.isFile() && entry.name.endsWith('.md')) {
             results.push(full);
         }
@@ -111,21 +98,22 @@ function indexFile(absFile: string, relPath: string): DocBlock[] {
     return extractBlocks(raw, relPath, absFile);
 }
 
-function indexFolder(absFolder: string): DocBlock[] {
-    const files = findMdFiles(absFolder);
+function indexFolder(absFolder: string, recursive: boolean, exclude: string[]): DocBlock[] {
+    const files = findMdFiles(absFolder, recursive);
     const blocks: DocBlock[] = [];
     for (const absFile of files) {
+        const relPath = path.relative(absFolder, absFile);
+        if (isExcluded(relPath, exclude)) { continue; }
         const raw = readRaw(absFile);
         if (raw === null) { continue; }
-        if (!hasFrontmatterFlag(raw)) { continue; }
-        const relPath = path.relative(absFolder, absFile);
         blocks.push(...extractBlocks(raw, relPath, absFile));
     }
     return blocks;
 }
 
-export function readDocSources(runbooks: string[], workspaceRoot: string): SourceResult[] {
-    return runbooks.map(sourcePath => {
+export function readDocSources(runbooks: RunbookEntry[], workspaceRoot: string): SourceResult[] {
+    return runbooks.map(entry => {
+        const sourcePath = entry.path;
         const abs = path.isAbsolute(sourcePath)
             ? sourcePath
             : path.join(workspaceRoot, sourcePath);
@@ -137,7 +125,7 @@ export function readDocSources(runbooks: string[], workspaceRoot: string): Sourc
         }
 
         if (stat.isDirectory()) {
-            return { sourcePath, blocks: indexFolder(abs) };
+            return { sourcePath, blocks: indexFolder(abs, entry.recursive, entry.exclude) };
         } else if (stat.isFile()) {
             return { sourcePath, blocks: indexFile(abs, path.basename(abs)) };
         }
