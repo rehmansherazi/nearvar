@@ -39,6 +39,7 @@ const os = __importStar(require("os"));
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const configReader_1 = require("./configReader");
+const bashReader_1 = require("./bashReader");
 function escapeHtml(text) {
     return text
         .replace(/&/g, '&amp;')
@@ -150,14 +151,18 @@ class NearVarPanel {
         const context = vscode.env.remoteName ? escapeHtml(vscode.env.remoteName) : 'local';
         const homedir = escapeHtml(os.homedir());
         let configError;
+        let config;
         if (this._hasConfig()) {
             const p = this._configPath();
             const result = (0, configReader_1.loadConfig)(p);
-            if (!result.ok) {
+            if (result.ok) {
+                config = result.config;
+            }
+            else {
                 configError = result.error;
             }
         }
-        const body = this._hasConfig() ? this._mainContent(configError) : this._welcomeCard();
+        const body = this._hasConfig() ? this._mainContent(config, configError) : this._welcomeCard();
         return `<!DOCTYPE html>
 <html>
 <head>
@@ -186,6 +191,7 @@ class NearVarPanel {
   .error-card { border: 1px solid var(--vscode-inputValidation-errorBorder); border-radius: 3px; padding: 8px 10px; margin-bottom: 10px; }
   .error-title { font-size: 11px; font-weight: 600; color: var(--vscode-inputValidation-errorForeground, #f48771); margin-bottom: 4px; }
   .error-msg { font-size: 11px; color: var(--vscode-descriptionForeground); font-family: var(--vscode-editor-font-family, monospace); word-break: break-word; }
+  .dynamic { color: var(--vscode-editorWarning-foreground, #cca700); }
 </style>
 </head>
 <body>
@@ -223,10 +229,13 @@ class NearVarPanel {
     <button onclick="createConfig()">Create nearvar.yaml</button>
   </div>`;
     }
-    _mainContent(error) {
+    _mainContent(config, error) {
         const errorCard = error
             ? `<div class="error-card"><div class="error-title">nearvar.yaml error</div><div class="error-msg">${escapeHtml(error)}</div></div>`
             : '';
+        if (!config) {
+            return errorCard;
+        }
         const item = (label, value) => {
             const el = escapeHtml(label);
             const ev = escapeHtml(value);
@@ -239,11 +248,39 @@ class NearVarPanel {
                 `</div>`;
         };
         const section = (title, items) => `<div class="section-label">${escapeHtml(title)}</div>${items}`;
-        return errorCard + [
+        const varItem = (v) => {
+            const eName = escapeHtml(v.name);
+            const pasteVal = v.dynamic ? `$${eName}` : escapeHtml(v.value);
+            const valueSpan = v.dynamic
+                ? `<span class="item-value dynamic">&#9888; dynamic</span>`
+                : `<span class="item-value">${escapeHtml(v.value)}</span>`;
+            return `<div class="item" data-value="${pasteVal}">` +
+                `<div class="item-body">` +
+                `<span class="item-label">${eName}</span>` +
+                valueSpan +
+                `</div>` +
+                `<button class="copy-btn" data-value="${pasteVal}">Copy</button>` +
+                `</div>`;
+        };
+        const bashVars = config.sources.bash ? (0, bashReader_1.readBashVars)() : [];
+        const bashSection = bashVars.length > 0
+            ? section('Bash Variables', bashVars.map(varItem).join(''))
+            : '';
+        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        const envVars = [];
+        if (workspaceRoot) {
+            for (const rel of config.sources.env) {
+                envVars.push(...(0, bashReader_1.readEnvFile)(path.join(workspaceRoot, rel), path.basename(rel)));
+            }
+        }
+        const envSection = envVars.length > 0
+            ? section('.env Variables', envVars.map(varItem).join(''))
+            : '';
+        return [
             section('Runbooks', item('Check pods', 'kubectl get pods -n production')),
             '<div class="divider"></div>',
-            section('Bash Variables', item('DATABASE_URL', '$DATABASE_URL')),
-            section('.env Variables', item('APP_PORT', '$APP_PORT')),
+            bashSection,
+            envSection,
             section('AWS Profiles', item('default', 'aws sts get-caller-identity --profile default')),
             '<div class="divider"></div>',
             section('Custom', item('Running containers', 'docker ps -a')),

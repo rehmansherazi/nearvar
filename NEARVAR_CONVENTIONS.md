@@ -176,6 +176,14 @@ Run through this checklist explicitly. Nothing ships without it.
 - [ ] ROADMAP.md updated with new SEP status
 - [ ] NEARVAR_CONTEXT.md updated with current state snapshot
 
+## Known limitations (v1)
+
+### Escaped quotes inside variable values are not handled
+
+`export FOO="bar\"baz"` and `export FOO='it'\''s'` will parse incorrectly — the value may include the literal quote characters or truncate early. Documenting only unescaped, single-quoted or double-quoted values is the safe path in v1. Multi-line values (via `\` continuation) are also not parsed.
+
+---
+
 ## Verify-before-implement rule
 
 Before any SEP uses a specific VS Code API, npm package, or CLI command, verify it against current documentation. Check: VS Code API docs for the method, minimum engine version required, npm package CVEs, and any breaking changes in the last release.
