@@ -1,8 +1,8 @@
 # NearVar — Current State Snapshot
 
-**Last updated:** SEP-04 complete — 2026-06-17
+**Last updated:** SEP-05 complete — 2026-06-17
 **Extension version:** 0.0.1
-**Status:** SEP-04 complete — smoke tested on Linux, all 8 checklist items passed
+**Status:** SEP-05 complete — smoke tested on Linux, all 12 checklist items passed
 
 ## What works
 
@@ -12,25 +12,32 @@
 - Context bar: execution environment (`local` or remote name) · home directory
 - Welcome card with "Create nearvar.yaml" button when no config file exists
 - "Create nearvar.yaml" writes template file, opens it in editor, refreshes panel
-- 5 sections with hardcoded sample items: Runbooks, Bash Variables, .env Variables, AWS Profiles, Custom
 - Section dividers matching locked panel section order
 - Click any item → pastes value to active terminal without executing (sendText with shouldExecute=false)
 - Hover → Copy button appears; Copy sends value to clipboard via extension side only
 - No active terminal → creates new "NearVar" terminal with 500ms delay before sendText (shell-ready fix)
 - `acquireVsCodeApi()` wired in webview; item values stored in data-value attributes (no inline onclick data)
 - nearvar.yaml loaded via js-yaml on every panel render; 512 KB size guard
-- FileSystemWatcher on `nearvar.yaml` — panel auto-reloads on create/change/delete
+- `_yamlWatcher` (permanent) reloads panel on nearvar.yaml create/change/delete
 - Validation: YAML parse failure, wrong top-level type, and `sources` non-mapping → error card; missing `sources` key silently coerces to safe defaults (runbooks: [], bash: false, env: [], aws: false)
-- Error card rendered above sections when config is invalid
+- Error card rendered, no sections, when config is invalid
 - `readBashVars()` reads `~/.bashrc` (Linux/WSL) or `~/.bash_profile` (macOS); parses `export VAR=value`; 512 KB guard; returns `[]` on any error
 - `readEnvFile()` reads workspace-relative `.env` files; parses `VAR=value`; same guards
 - Variables with `$()` in value shown with `⚠ dynamic` badge; clicking pastes `$VAR_NAME`; value never shown
 - Bash and .env sections hidden entirely when source disabled or returns no vars
+- `readDocSources()` indexes fenced bash blocks from `.md` files in `sources.runbooks`
+- Folder sources: recursive `.md` scan, `bashdock: true` frontmatter gate, `relPath` relative to source folder
+- File sources: indexed directly, no frontmatter check
+- CRLF normalised; 512 KB guard per file; blocks with no preceding heading skipped silently
+- Single-line blocks → normal item; multi-line blocks → collapsible group (▶/▼ toggle), each line independently pasteable
+- Relative path shown as `· filename.md` on items; absolute path in hover tooltip (title attr)
+- Inaccessible source → inline `⚠` error badge, rest of panel renders
+- `_docWatchers[]` rebuilt on every refresh — per-source FileSystemWatcher auto-reloads panel on `.md` change
+- Runbooks section hidden when `runbooks: []` or all sources return no blocks
 
 ## What is not built yet
 
 - AWS profile reading — SEP-06
-- Document source indexer — SEP-05
 
 ## Active file list
 
@@ -39,9 +46,10 @@
 | `package.json` | Extension manifest, keybindings, view registration | Done |
 | `tsconfig.json` | TypeScript compiler config | Done |
 | `src/extension.ts` | Activation — registers provider and openPanel command | Done |
-| `src/panel.ts` | WebviewViewProvider — CSP, escapeHtml, context bar, welcome card, sections, paste, copy | Done |
+| `src/panel.ts` | WebviewViewProvider — CSP, escapeHtml, context bar, welcome card, sections, paste, copy, doc groups | Done |
 | `src/bashReader.ts` | Bash + .env variable reader — export/VAR=value parsing, quote strip, dynamic badge, 512 KB guard | Done |
 | `src/configReader.ts` | Config reader — js-yaml parse, size guard, validation, silent-default coercion | Done |
+| `src/docReader.ts` | Document source indexer — fenced block extraction, frontmatter gate, folder scan, source watchers | Done |
 | `.vscodeignore` | Package exclusions | Done |
 | `images/icon.svg` | Activity bar icon | Done |
 | `README.md` | Public documentation | Done |
@@ -54,7 +62,7 @@
 
 ## Last commit
 
-b6f76bc — SEP-04: Bash and .env variable reader — real data, dynamic badge, empty section hiding
+e9ac31b — SEP-05: Document source indexer — docReader, fenced block extraction, collapsible groups, source watchers
 
 ## Smoke test notes
 
@@ -62,13 +70,14 @@ b6f76bc — SEP-04: Bash and .env variable reader — real data, dynamic badge, 
 - SEP-02 smoke test passed on Linux (2026-06-17): all 8 checklist items verified — sections render, paste inserts without executing, Copy writes to clipboard, new-terminal path creates terminal and delays sendText 500ms
 - SEP-03 smoke test passed on Linux (2026-06-17): all 10 steps verified — config load, error card, FileSystemWatcher auto-reload, missing sources key silently coerces to defaults (no error card)
 - SEP-04 smoke test passed on Linux (2026-06-17): all 8 checklist items verified — real bash vars from ~/.bashrc, dynamic badge + $VAR_NAME paste, empty section hiding, missing .env silent handling, full SEP-02/03 regression passed
+- SEP-05 smoke test passed on Linux (2026-06-17): all 12 checklist items verified — frontmatter gate, untitled block skipping, multi-line collapsible groups, inline error badges, FileSystemWatcher auto-reload, full SEP-02/03/04 regression passed
 - EDH requires an open folder to test config creation flow
 - `terminal.sendText` second parameter is `shouldExecute` (not `addNewLine`) in VS Code ≥ 1.100 — pass `false` to insert without executing. VS Code API docs website lags behind; canonical source is vscode.d.ts on GitHub.
 - Missing `sources` key in nearvar.yaml is forgiving — coerces to empty defaults, no error card. Only parse failure, wrong top-level type, or `sources` being a non-mapping shows the error card.
 
 ## Next SEP
 
-**SEP-05: Document source indexer**
+**SEP-06: AWS + cloud profiles**
 
 ## Session continuity
 

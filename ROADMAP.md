@@ -9,7 +9,7 @@
 | SEP-02 | Static items + paste | ✅ done | Hardcoded items, click-to-paste (insert without execute), all platforms |
 | SEP-03 | nearvar.yaml config reader | ✅ done | Read config, validate, auto-reload on change, welcome card on first run |
 | SEP-04 | Bash + .env variable reader | ✅ done | Parse ~/.bashrc, ~/.bash_profile, .env files, dynamic badge for $() |
-| SEP-05 | Document source indexer | ⬜ planned | Index fenced bash blocks from markdown, frontmatter opt-in, file watcher |
+| SEP-05 | Document source indexer | ✅ done | Index fenced bash blocks from markdown, frontmatter opt-in, file watcher |
 | SEP-06 | AWS + cloud profiles | ⬜ planned | Read ~/.aws/config, display profiles and regions, cross-platform paths |
 | SEP-07 | Editor CodeLens (inline) | ⬜ v2 | Click commands directly in editor — CodeLens on indexed source files |
 | SEP-08 | Remote URL sources | ⬜ v2 | https sources with timeout, cache, offline badge, no auth |
