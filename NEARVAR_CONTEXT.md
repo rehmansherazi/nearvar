@@ -1,8 +1,8 @@
 # NearVar — Current State Snapshot
 
-**Last updated:** SEP-06 complete — 2026-06-18
+**Last updated:** SEP-07 complete — 2026-06-18
 **Extension version:** 0.0.1
-**Status:** SEP-06 complete — smoke tested on Linux, all 7 checklist items passed.
+**Status:** SEP-07 complete — smoke tested on Linux, all 7 steps passed.
 
 ## What works
 
@@ -40,7 +40,6 @@
 
 ## What is not built yet
 
-- Editor CodeLens — SEP-07 (v2)
 - Remote URL sources — SEP-08 (v2)
 - Keyboard navigation — SEP-09 (v2)
 
@@ -55,6 +54,7 @@
 | `src/bashReader.ts` | Bash + .env variable reader — export/VAR=value parsing, quote strip, dynamic badge, 512 KB guard | Done |
 | `src/configReader.ts` | Config reader — js-yaml parse, RunbookEntry type, toRunbookArray(), size guard, validation | Done |
 | `src/docReader.ts` | Document source indexer — fenced block extraction, no frontmatter gate, recursive/exclude via minimatch | Done |
+| `src/codeLensProvider.ts` | CodeLens provider — source-gated, heading labels, multi-line joined by &&, `nearvar.pasteToTerminal` command | Done |
 | `src/awsReader.ts` | AWS profile reader — INI parser, ~/.aws/config + credentials, credential values never stored | Done |
 | `.vscodeignore` | Package exclusions | Done |
 | `images/icon.svg` | Activity bar icon | Done |
@@ -68,7 +68,7 @@
 
 ## Last commit
 
-432ad21 — SEP-06: AWS profile reader — real profiles, regions, credentials names only, --profile paste value
+9ddb679 — SEP-07: Editor CodeLens — inline paste from runbook files, source-gated, heading labels
 
 ## Smoke test notes
 
@@ -79,13 +79,14 @@
 - SEP-05 smoke test passed on Linux (2026-06-17): all 12 checklist items verified — frontmatter gate, untitled block skipping, multi-line collapsible groups, inline error badges, FileSystemWatcher auto-reload, full SEP-02/03/04 regression passed
 - SEP-05b schema update smoke test passed on Linux (2026-06-18): all 9 steps verified — frontmatter removal, string shorthand, recursive: false, exclude glob patterns via minimatch, error badge on missing path
 - SEP-06 smoke test passed on Linux (2026-06-18): all 7 checklist items verified — real AWS profiles from ~/.aws/config, regions displayed, credentials-only profiles with region: '', --profile paste value, aws: false hides section, full regression of all previous SEPs passed
+- SEP-07 smoke test passed on Linux (2026-06-18): all 7 steps verified — CodeLens above each fenced block, heading used as label, multi-line blocks joined by &&, non-source files show no CodeLens, runbooks: [] removes all CodeLens, full panel regression passed
 - EDH requires an open folder to test config creation flow
 - `terminal.sendText` second parameter is `shouldExecute` (not `addNewLine`) in VS Code ≥ 1.100 — pass `false` to insert without executing. VS Code API docs website lags behind; canonical source is vscode.d.ts on GitHub.
 - Missing `sources` key in nearvar.yaml is forgiving — coerces to empty defaults, no error card. Only parse failure, wrong top-level type, or `sources` being a non-mapping shows the error card.
 
 ## Next SEP
 
-**SEP-07: Editor CodeLens (v2) — not scheduled**
+**SEP-08: Remote URL sources (v2) — not scheduled**
 
 ## Session continuity
 
