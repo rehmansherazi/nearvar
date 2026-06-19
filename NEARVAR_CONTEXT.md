@@ -1,8 +1,8 @@
 # NearVar — Current State Snapshot
 
-**Last updated:** SEP-07 complete — 2026-06-18
-**Extension version:** 0.0.1
-**Status:** SEP-07 complete — smoke tested on Linux, all 7 steps passed.
+**Last updated:** Publish prep complete — 2026-06-18
+**Extension version:** 0.1.0
+**Status:** All v1 SEPs complete and smoke tested. Publish prep done. Pending: create GitHub repo at github.com/rehmansherazi/nearvar and push main, then run vsce publish.
 
 ## What works
 
@@ -68,7 +68,7 @@
 
 ## Last commit
 
-9ddb679 — SEP-07: Editor CodeLens — inline paste from runbook files, source-gated, heading labels
+d0755a1 — Publish prep: package.json metadata, 128x128 icon, README rewrite
 
 ## Smoke test notes
 
@@ -83,6 +83,17 @@
 - EDH requires an open folder to test config creation flow
 - `terminal.sendText` second parameter is `shouldExecute` (not `addNewLine`) in VS Code ≥ 1.100 — pass `false` to insert without executing. VS Code API docs website lags behind; canonical source is vscode.d.ts on GitHub.
 - Missing `sources` key in nearvar.yaml is forgiving — coerces to empty defaults, no error card. Only parse failure, wrong top-level type, or `sources` being a non-mapping shows the error card.
+
+## Publish checklist
+
+- [x] All v1 SEPs complete and smoke tested on Linux
+- [x] `npm run compile` — zero errors, zero warnings
+- [x] `package.json` version `0.1.0`, metadata, icon, galleryBanner, repository URLs
+- [x] `images/icon.svg` — 128×128 viewBox, Marketplace-compatible
+- [x] `README.md` — rewritten for Marketplace
+- [ ] Create GitHub repo at `github.com/rehmansherazi/nearvar` (manual)
+- [ ] Push `main` branch to GitHub (manual)
+- [ ] Run `npx vsce publish` from Bash terminal (manual)
 
 ## Next SEP
 
