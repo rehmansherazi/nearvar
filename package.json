@@ -2,13 +2,15 @@
   "name": "nearvar",
   "displayName": "NearVar",
   "description": "NearVar — environment variables, cloud profiles, and runbook commands. Always within reach.",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "publisher": "rehmansherazi",
   "engines": {
     "vscode": "^1.100.0"
   },
   "categories": [
-    "Other"
+    "Other",
+    "Snippets",
+    "Keymaps"
   ],
   "keywords": [
     "environment variables",
@@ -17,6 +19,19 @@
     "aws",
     "devops"
   ],
+  "icon": "images/icon.svg",
+  "galleryBanner": {
+    "color": "#1e1e1e",
+    "theme": "dark"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rehmansherazi/nearvar"
+  },
+  "homepage": "https://github.com/rehmansherazi/nearvar#readme",
+  "bugs": {
+    "url": "https://github.com/rehmansherazi/nearvar/issues"
+  },
   "activationEvents": [
     "onView:nearvar.panel",
     "onLanguage:markdown"

@@ -75,6 +75,8 @@ Requires:
 - Personal Access Token with Marketplace publish scope
 - `npm run compile` must pass clean before publish
 
+**Before publishing:** Create the GitHub repository at `github.com/rehmansherazi/nearvar` and push the `main` branch first. The `repository`, `homepage`, and `bugs` fields in `package.json` reference this URL — Marketplace will link to it from the extension page.
+
 ## Publisher account
 
 - Publisher ID: `rehmansherazi`

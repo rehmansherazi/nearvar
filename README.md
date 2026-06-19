@@ -1,72 +1,88 @@
 # NearVar
 
-**NearVar — environment variables, cloud profiles, and runbook commands. Always within reach.**
+**Environment variables, cloud profiles, and runbook commands — always within reach.**
 
-A VS Code sidebar extension that surfaces environment variables, cloud profiles, and runbook commands in a single persistent panel. Click any item to paste it into the active terminal — without executing it — so you always review before running.
+NearVar is a VS Code sidebar extension that surfaces your shell environment, AWS profiles, and runbook commands in a single persistent panel. Click any item to paste it into the active terminal — without executing it — so you always review before running.
 
 ## Who this is for
 
-NearVar is for engineers who work across multiple terminals, environments, and projects and need fast access to variables and runbook commands during incidents, deployments, and dev sessions.
-
-- DevOps and platform engineers who run frequent one-liners from playbooks
-- Developers who manage multiple AWS profiles or `.env` files across projects
+- DevOps and platform engineers who run frequent commands from playbooks during incidents
+- Developers managing multiple AWS profiles or `.env` files across projects
 - On-call engineers who need runbook commands immediately during an outage
 
-## What NearVar does
+## Features
 
-- Reads environment variables from `~/.bashrc`, `~/.bash_profile`, and workspace `.env` files
-- Reads AWS profile names and regions from `~/.aws/config`
-- Indexes fenced bash code blocks from markdown runbooks configured in `nearvar.yaml`
-- Pastes any item into the active terminal **without executing it** — you press Enter to run
+- **Bash variables** — reads `~/.bashrc` (Linux) or `~/.bash_profile` (macOS)
+- **Environment files** — reads `.env` files in your workspace
+- **AWS profiles** — reads `~/.aws/config` and `~/.aws/credentials`
+- **Runbook commands** — indexes fenced bash blocks from markdown files you configure
+- **Editor CodeLens** — click `▶ NearVar: <heading>` above any fenced bash block in a configured runbook to paste directly from the editor
+- **Paste without executing** — text lands in the terminal prompt, you press Enter to run. Never executes automatically.
 
-## What NearVar does not do
-
-- Not a secrets manager — no vault, no encryption, no sync
-- Not a command executor — paste only, user always confirms with Enter
-- Not an auth manager — if a resource is inaccessible, NearVar says so and stops
-- Not a write tool — read-only across every source, always
-
-## Installation
-
-Install from the VS Code Marketplace: search for **NearVar** by `rehmansherazi`.
+## Getting started
 
 Open the panel: `Ctrl+Alt+E` (Linux / Windows) or `Cmd+Alt+E` (macOS).
 
+On first open, NearVar shows a welcome card. Click **Create nearvar.yaml** to scaffold a config file in your workspace root.
+
 ## Configuration
 
-Place a `nearvar.yaml` file in your workspace root:
+`nearvar.yaml` lives in your workspace root:
 
 ```yaml
-# nearvar.yaml — workspace configuration
+# nearvar.yaml — NearVar configuration
 sources:
-  - /home/rehman/oncall/playbooks/  # prod oncall procedures
-  - ./runbooks/                      # local workspace runbooks
-custom:
-  - label: prod-server-01
-    value: prod-server-01.example.com
-    icon: server
+  runbooks:
+    # Single file — indexed directly
+    - ./runbooks/deploy.md
+
+    # Folder — all .md files, recursive by default
+    - ~/oncall/playbooks/procedures/
+
+    # Folder with options
+    - path: ~/oncall/playbooks/
+      recursive: false        # top-level files only
+      exclude:
+        - "*.draft.md"        # skip draft files
+        - "archive/*"         # skip archive subfolder
+
+  bash: true                  # read ~/.bashrc or ~/.bash_profile
+  env:
+    - .env                    # .env files relative to workspace
+  aws: true                   # read ~/.aws/config profiles
 ```
 
-Markdown files in `sources` must opt in via frontmatter:
+Only fenced bash code blocks are indexed from runbook files:
 
-```yaml
----
-title: VM Recovery Procedures
-bashdock: true
----
+~~~markdown
+## Restart nginx
+
+```bash
+systemctl restart nginx
+systemctl status nginx
 ```
+~~~
 
-Only fenced bash code blocks are indexed. Inline backtick commands are ignored.
+The section heading becomes the item label in the panel and the CodeLens label in the editor.
 
-## Known limitations
+## What NearVar is not
 
-- **Keyboard navigation** — arrow keys and Enter-to-paste are not implemented in v1. Use the mouse to click items. Planned for v2.
-- **Remote sources** — URL and Git repository sources are v2. v1 supports local filesystem paths only.
-- **Azure / GCP profiles** — planned for v2, same read-only pattern as AWS.
-- **Terminal pin** — NearVar pastes to the last active terminal. Pin to a specific terminal is v2.
+- **Not a secrets manager** — no vault, no encryption, no sync
+- **Not a command executor** — paste only, you always confirm with Enter
+- **Not an auth manager** — if a resource is inaccessible, NearVar reports it and stops
 
 ## Security
 
-NearVar is read-only and local-first. It never authenticates to any resource, never stores tokens, and never transmits data. Variable values are never logged. All dynamic content is HTML-escaped before display in the webview.
+NearVar is read-only and local-first. It never authenticates to any resource, never stores tokens, and never transmits data. Variable values are never logged. All content is HTML-escaped before display.
 
-See the hover tooltip on the `ⓘ` icon in the panel header for the full disclaimer.
+## Known limitations (v1)
+
+- Keyboard navigation not implemented — use mouse to click items
+- Remote URL and Git repository sources not supported — local filesystem only
+- Azure and GCP profiles not yet supported
+- Inline bash commands (backtick) not indexed — use fenced blocks
+- Escaped quotes inside variable values may parse incorrectly
+
+## License
+
+MIT
