@@ -37,12 +37,26 @@ exports.activate = activate;
 exports.deactivate = deactivate;
 const vscode = __importStar(require("vscode"));
 const panel_1 = require("./panel");
+const codeLensProvider_1 = require("./codeLensProvider");
 function activate(context) {
     const provider = new panel_1.NearVarPanel(context);
     context.subscriptions.push(vscode.window.registerWebviewViewProvider(panel_1.NearVarPanel.viewType, provider));
     context.subscriptions.push(vscode.commands.registerCommand('nearvar.openPanel', () => {
         void vscode.commands.executeCommand('nearvar.panel.focus');
     }));
+    context.subscriptions.push(vscode.commands.registerCommand('nearvar.pasteToTerminal', (value) => {
+        const terminal = vscode.window.activeTerminal;
+        if (terminal) {
+            terminal.show();
+            terminal.sendText(value, false);
+        }
+        else {
+            const newTerminal = vscode.window.createTerminal('NearVar');
+            newTerminal.show();
+            setTimeout(() => newTerminal.sendText(value, false), 500);
+        }
+    }));
+    context.subscriptions.push(vscode.languages.registerCodeLensProvider({ scheme: 'file', language: 'markdown' }, new codeLensProvider_1.NearVarCodeLensProvider()));
 }
 function deactivate() { }
 //# sourceMappingURL=extension.js.map

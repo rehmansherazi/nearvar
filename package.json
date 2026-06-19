@@ -18,7 +18,8 @@
     "devops"
   ],
   "activationEvents": [
-    "onView:nearvar.panel"
+    "onView:nearvar.panel",
+    "onLanguage:markdown"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -44,6 +45,10 @@
       {
         "command": "nearvar.openPanel",
         "title": "NearVar: Open Panel"
+      },
+      {
+        "command": "nearvar.pasteToTerminal",
+        "title": "NearVar: Paste to Terminal"
       }
     ],
     "keybindings": [

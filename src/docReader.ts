@@ -14,6 +14,7 @@ export interface DocBlock {
     lines: string[];
     relPath: string;
     absPath: string;
+    fenceLine: number;
 }
 
 export interface SourceResult {
@@ -32,7 +33,7 @@ function readRaw(filePath: string): string | null {
     }
 }
 
-function extractBlocks(raw: string, relPath: string, absPath: string): DocBlock[] {
+export function parseBlocks(raw: string, relPath: string, absPath: string): DocBlock[] {
     const text = raw.replace(/\r\n/g, '\n');
     const lines = text.split('\n');
 
@@ -47,18 +48,19 @@ function extractBlocks(raw: string, relPath: string, absPath: string): DocBlock[
     let currentHeading = '';
     let inBlock = false;
     let blockLines: string[] = [];
+    let fenceLine = 0;
 
     for (let i = start; i < lines.length; i++) {
         const line = lines[i];
         if (!inBlock) {
             const hm = line.match(HEADING_RE);
             if (hm) { currentHeading = hm[1].trim(); continue; }
-            if (FENCE_OPEN.test(line)) { inBlock = true; blockLines = []; continue; }
+            if (FENCE_OPEN.test(line)) { inBlock = true; blockLines = []; fenceLine = i; continue; }
         } else {
             if (FENCE_CLOSE.test(line)) {
                 const nonEmpty = blockLines.filter(l => l.trim());
                 if (nonEmpty.length > 0 && currentHeading) {
-                    blocks.push({ label: currentHeading, lines: nonEmpty, relPath, absPath });
+                    blocks.push({ label: currentHeading, lines: nonEmpty, relPath, absPath, fenceLine });
                 }
                 inBlock = false;
             } else {
@@ -95,7 +97,7 @@ function findMdFiles(dir: string, recursive: boolean): string[] {
 function indexFile(absFile: string, relPath: string): DocBlock[] {
     const raw = readRaw(absFile);
     if (raw === null) { return []; }
-    return extractBlocks(raw, relPath, absFile);
+    return parseBlocks(raw, relPath, absFile);
 }
 
 function indexFolder(absFolder: string, recursive: boolean, exclude: string[]): DocBlock[] {
@@ -106,7 +108,7 @@ function indexFolder(absFolder: string, recursive: boolean, exclude: string[]): 
         if (isExcluded(relPath, exclude)) { continue; }
         const raw = readRaw(absFile);
         if (raw === null) { continue; }
-        blocks.push(...extractBlocks(raw, relPath, absFile));
+        blocks.push(...parseBlocks(raw, relPath, absFile));
     }
     return blocks;
 }

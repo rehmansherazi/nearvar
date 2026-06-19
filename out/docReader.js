@@ -33,6 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.parseBlocks = parseBlocks;
 exports.readDocSources = readDocSources;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
@@ -53,7 +54,7 @@ function readRaw(filePath) {
         return null;
     }
 }
-function extractBlocks(raw, relPath, absPath) {
+function parseBlocks(raw, relPath, absPath) {
     const text = raw.replace(/\r\n/g, '\n');
     const lines = text.split('\n');
     let start = 0;
@@ -68,6 +69,7 @@ function extractBlocks(raw, relPath, absPath) {
     let currentHeading = '';
     let inBlock = false;
     let blockLines = [];
+    let fenceLine = 0;
     for (let i = start; i < lines.length; i++) {
         const line = lines[i];
         if (!inBlock) {
@@ -79,6 +81,7 @@ function extractBlocks(raw, relPath, absPath) {
             if (FENCE_OPEN.test(line)) {
                 inBlock = true;
                 blockLines = [];
+                fenceLine = i;
                 continue;
             }
         }
@@ -86,7 +89,7 @@ function extractBlocks(raw, relPath, absPath) {
             if (FENCE_CLOSE.test(line)) {
                 const nonEmpty = blockLines.filter(l => l.trim());
                 if (nonEmpty.length > 0 && currentHeading) {
-                    blocks.push({ label: currentHeading, lines: nonEmpty, relPath, absPath });
+                    blocks.push({ label: currentHeading, lines: nonEmpty, relPath, absPath, fenceLine });
                 }
                 inBlock = false;
             }
@@ -125,7 +128,7 @@ function indexFile(absFile, relPath) {
     if (raw === null) {
         return [];
     }
-    return extractBlocks(raw, relPath, absFile);
+    return parseBlocks(raw, relPath, absFile);
 }
 function indexFolder(absFolder, recursive, exclude) {
     const files = findMdFiles(absFolder, recursive);
@@ -139,7 +142,7 @@ function indexFolder(absFolder, recursive, exclude) {
         if (raw === null) {
             continue;
         }
-        blocks.push(...extractBlocks(raw, relPath, absFile));
+        blocks.push(...parseBlocks(raw, relPath, absFile));
     }
     return blocks;
 }
