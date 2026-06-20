@@ -41,7 +41,7 @@ const minimatch_1 = require("minimatch");
 const configReader_1 = require("./configReader");
 const docReader_1 = require("./docReader");
 function isFileInSource(filePath, entry, workspaceRoot) {
-    const abs = path.normalize(path.isAbsolute(entry.path) ? entry.path : path.join(workspaceRoot, entry.path));
+    const abs = path.normalize(path.isAbsolute(entry.path) ? entry.path : path.join(workspaceRoot, entry.path)).replace(/[/\\]+$/, '');
     let stat;
     try {
         stat = fs.statSync(abs);

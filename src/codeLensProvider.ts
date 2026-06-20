@@ -8,7 +8,7 @@ import { parseBlocks } from './docReader';
 function isFileInSource(filePath: string, entry: RunbookEntry, workspaceRoot: string): boolean {
     const abs = path.normalize(
         path.isAbsolute(entry.path) ? entry.path : path.join(workspaceRoot, entry.path)
-    );
+    ).replace(/[/\\]+$/, '');
     let stat: fs.Stats | undefined;
     try { stat = fs.statSync(abs); } catch { return false; }
 
