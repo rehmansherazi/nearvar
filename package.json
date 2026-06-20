@@ -19,7 +19,7 @@
     "aws",
     "devops"
   ],
-  "icon": "images/icon.svg",
+  "icon": "images/icon.png",
   "galleryBanner": {
     "color": "#1e1e1e",
     "theme": "dark"
@@ -33,7 +33,6 @@
     "url": "https://github.com/rehmansherazi/nearvar/issues"
   },
   "activationEvents": [
-    "onView:nearvar.panel",
     "onLanguage:markdown"
   ],
   "main": "./out/extension.js",
