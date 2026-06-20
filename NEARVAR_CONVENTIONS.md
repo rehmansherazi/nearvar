@@ -208,6 +208,16 @@ Run through this checklist explicitly. Nothing ships without it.
 
 ---
 
+### path.normalize() does not strip trailing separators — strip manually before path comparisons
+
+`path.normalize('/foo/bar/')` returns `'/foo/bar/'` on Linux (trailing slash preserved). When building an absolute path from a user-configured source like `./runbooks/`, the result retains the trailing slash. A subsequent `filePath.startsWith(abs + path.sep)` becomes a double-slash check (`/runbooks//`) that never matches real file paths. Always strip trailing separators after normalize before using the path in string comparisons:
+
+```typescript
+const abs = path.normalize(rawPath).replace(/[/\\]+$/, '');
+```
+
+---
+
 ### Exclude patterns matched against relative path from source root
 
 `isExcluded()` calls `minimatch(relPath, pattern)` where `relPath` is relative to the configured source folder. Pattern `archive/*` correctly matches `archive/old.md`. Patterns are case-sensitive on Linux and macOS (minimatch default). Windows paths with backslashes are not normalised — use forward-slash patterns.

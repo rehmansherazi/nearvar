@@ -1,8 +1,8 @@
 # NearVar — Current State Snapshot
 
-**Last updated:** Publish prep complete — 2026-06-19
+**Last updated:** CodeLens trailing slash bug fixed — 2026-06-20
 **Extension version:** 0.1.0
-**Status:** All v1 SEPs complete and smoke tested. Publish prep done. Sidebar icon fixed to use currentColor (themeable). PNG Marketplace icon correct with hardcoded colors. .gitignore in place. Pending: create GitHub repo, push main, then vsce publish.
+**Status:** All v1 SEPs complete. Publish prep done. CodeLens bug fixed: trailing slash in nearvar.yaml folder paths caused isFileInSource() to always return false (double-slash startsWith mismatch). Fixed by stripping trailing separators after path.normalize(). Pending: create GitHub repo, push main, then vsce publish.
 
 ## What works
 
@@ -68,7 +68,7 @@
 
 ## Last commit
 
-79168d6 — Fix: activitybar icon now uses currentColor for proper VS Code theming
+26aaea8 — Fix: strip trailing path separator in CodeLens source matching
 
 ## Smoke test notes
 
