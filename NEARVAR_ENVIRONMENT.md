@@ -90,6 +90,10 @@ Requires:
 /home/rehman/repos/nearvar/
 ```
 
+## Demo data
+
+Run `demoscripts/nearvar_demo_setup.sh` to populate realistic runbooks, bash vars, `.env`, and AWS profiles for screenshots or manual testing. Run `demoscripts/nearvar_demo_cleanup.sh` to fully restore your system afterward (including original `~/.aws` files if present).
+
 ## Syncbridge reference
 
 The Syncbridge extension (`/home/rehman/repos/syncbridge`) is the reference implementation for:
