@@ -1,7 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
-  <rect x="4" y="4" width="120" height="120" rx="16"
-    fill="#1e1e1e" stroke="#007acc" stroke-width="6"/>
-  <text x="64" y="88" text-anchor="middle"
-    font-size="64" font-family="monospace" font-weight="bold"
-    fill="#007acc">NV</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+  fill="none" stroke="currentColor" stroke-width="1.5"
+  stroke-linecap="round" stroke-linejoin="round">
+  <rect x="3" y="3" width="18" height="18" rx="3"/>
+  <path d="M7 9h4M7 13h7M7 17h4"/>
 </svg>
