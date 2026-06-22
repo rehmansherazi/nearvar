@@ -5,7 +5,7 @@ import { RunbookEntry } from './configReader';
 
 const MAX_BYTES = 512 * 1024;
 
-const FENCE_OPEN  = /^```bash\s*$/;
+const FENCE_OPEN  = /^```(bash|sh|shell|zsh)\s*$/;
 const FENCE_CLOSE = /^```\s*$/;
 const HEADING_RE  = /^#{1,6}\s+(.+)$/;
 
