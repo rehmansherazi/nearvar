@@ -18,3 +18,6 @@ NEARVAR_CONTEXT.md
 NEARVAR_ENVIRONMENT.md
 nearvar_locked_spec.docx
 .claude/
+.env
+ROADMAP.md
+images/screenshots/.gitkeep
