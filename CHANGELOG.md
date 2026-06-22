@@ -19,3 +19,13 @@ Smoke test: `npm run compile` — zero errors, zero warnings. Panel opens, rende
 Files created: package.json, tsconfig.json, src/extension.ts, src/panel.ts, src/bashReader.ts, src/configReader.ts, .vscodeignore, README.md, CHANGELOG.md, ROADMAP.md, NEARVAR_CONVENTIONS.md, NEARVAR_CONTEXT.md, NEARVAR_DECISIONS.md, NEARVAR_ENVIRONMENT.md
 
 Smoke test: `npm run compile` — zero errors, zero warnings.
+
+---
+
+## [0.2.0] — SEP-08: Panel search/filter and collapsible sections — 2026-06-21
+
+Added live search/filter bar (below context bar, above sections, visible only when config is valid). 150ms debounce, client-side substring match on `data-search-terms` attributes. Filter scope per section type: runbook label + command value; bash var name + value (dynamic: name only); .env var name only (value intentionally excluded — "not a secrets manager" promise); AWS profile name + region; custom item label + value. Sections with no matching items hide their entire wrapper. Clearing filter restores the pre-filter panel state.
+
+Added collapsible sections with config-driven defaults. New optional `ui.collapsed` key in nearvar.yaml accepts a list of section identifiers (`runbooks`, `bash`, `env`, `aws`, `custom`). Unknown identifiers silently ignored. Chevron (▶/▼) always visible in section headers; click to toggle in the current session. Filter "peek-through": typing a query snapshots and forces all `section-items` visible so matches inside collapsed sections appear (chevron stays ▶). Clearing filter restores the exact pre-filter collapse state from the snapshot — no chevron changes, no data-collapsed-default read. Panel refresh resets all sections to config defaults. "Create nearvar.yaml" template now includes a `ui:` block with inline comments.
+
+Smoke test: all scenarios confirmed on Linux. Full regression of SEP-01 through SEP-07 passed.

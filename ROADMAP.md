@@ -13,11 +13,12 @@
 | SEP-05b | Schema update | ✅ done | Drop frontmatter gate; add recursive/exclude/shorthand schema; minimatch |
 | SEP-06 | AWS + cloud profiles | ✅ done | Read ~/.aws/config + credentials, display profiles/regions, --profile paste value |
 | SEP-07 | Editor CodeLens (inline) | ✅ done | CodeLens above each fenced bash block, source-gated, heading labels, multi-line && join |
-| SEP-08 | Remote URL sources | ⬜ v2 | https sources with timeout, cache, offline badge, no auth |
+| SEP-08 | Panel UX — search/filter + collapsible sections | ✅ done | Live filter with data-search-terms, .env name-only, config-driven collapse defaults, peek-through, session toggles |
 | SEP-09 | Keyboard navigation | ⬜ v2 | Arrow keys + Enter to paste in panel |
 
 ## Parking lot — decided, not yet scheduled
 
+- Remote URL sources — https sources with timeout, cache, offline badge, no auth
 - SEP-09: GCP profile reader (gcp: true in nearvar.yaml)
 - SEP-10: Azure profile reader (azure: true in nearvar.yaml)
 - Terminal pin — lock paste target to specific terminal session

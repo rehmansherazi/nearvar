@@ -1,8 +1,8 @@
 # NearVar — Current State Snapshot
 
-**Last updated:** CodeLens trailing slash bug fixed — 2026-06-20
-**Extension version:** 0.1.0
-**Status:** All v1 SEPs complete. Publish prep done. CodeLens bug fixed: trailing slash in nearvar.yaml folder paths caused isFileInSource() to always return false (double-slash startsWith mismatch). Fixed by stripping trailing separators after path.normalize(). Pending: create GitHub repo, push main, then vsce publish.
+**Last updated:** SEP-08 complete — 2026-06-21
+**Extension version:** 0.2.0
+**Status:** All v1 SEPs complete plus SEP-08 panel UX (search/filter + collapsible sections). Publish prep done. Pending: create GitHub repo, push main, then vsce publish.
 
 ## What works
 
@@ -37,11 +37,15 @@
 - Inaccessible source → inline `⚠` error badge, rest of panel renders
 - `_docWatchers[]` rebuilt on every refresh — per-source FileSystemWatcher auto-reloads panel on `.md` change
 - Runbooks section hidden when `runbooks: []` or all sources return no blocks
+- Search/filter bar below context bar (only when config is valid): live 150ms debounce input filter; client-side substring match on `data-search-terms` HTML attributes; .env var names only (values never searched — "not a secrets manager" promise); dynamic bash vars: name only; unmatched sections hide their wrapper entirely
+- Collapsible sections: `ui.collapsed` string list in nearvar.yaml sets which sections start collapsed; chevron always visible in section header (▶ collapsed, ▼ expanded); click header to toggle in current session; filter "peek-through" — entering a query forces `section-items` visible (snapshot taken on first char, restored on clear) so matches inside collapsed sections show while chevron stays ▶; clearing filter restores exact pre-filter collapse state without touching chevrons; panel refresh resets to config defaults
+- `ui:` key in nearvar.yaml parsed by `configReader.ts` — silently coerces missing/wrong-type to `{ collapsed: [] }`; unknown identifiers in collapsed list silently ignored
+- "Create nearvar.yaml" template now includes `ui:` section with `collapsed: []` and valid-identifier comments
 
 ## What is not built yet
 
-- Remote URL sources — SEP-08 (v2)
-- Keyboard navigation — SEP-09 (v2)
+- Remote URL sources (v2)
+- Keyboard navigation (v2)
 
 ## Active file list
 
@@ -68,7 +72,7 @@
 
 ## Last commit
 
-26aaea8 — Fix: strip trailing path separator in CodeLens source matching
+e7d21cf — SEP-08: Panel search/filter and collapsible sections
 
 ## Smoke test notes
 
@@ -80,6 +84,7 @@
 - SEP-05b schema update smoke test passed on Linux (2026-06-18): all 9 steps verified — frontmatter removal, string shorthand, recursive: false, exclude glob patterns via minimatch, error badge on missing path
 - SEP-06 smoke test passed on Linux (2026-06-18): all 7 checklist items verified — real AWS profiles from ~/.aws/config, regions displayed, credentials-only profiles with region: '', --profile paste value, aws: false hides section, full regression of all previous SEPs passed
 - SEP-07 smoke test passed on Linux (2026-06-18): all 7 steps verified — CodeLens above each fenced block, heading used as label, multi-line blocks joined by &&, non-source files show no CodeLens, runbooks: [] removes all CodeLens, full panel regression passed
+- SEP-08 smoke test passed on Linux (2026-06-21): filter matching confirmed (names + values per spec, .env name-only, dynamic bash name-only); [hidden] !important fix confirmed — items correctly hide during filter; collapsible sections with config defaults working; chevron never touched by filter; peek-through behaviour confirmed; session toggle state survives filter cycles; config default restored only on panel refresh; full SEP-01–07 regression passed
 - EDH requires an open folder to test config creation flow
 - `terminal.sendText` second parameter is `shouldExecute` (not `addNewLine`) in VS Code ≥ 1.100 — pass `false` to insert without executing. VS Code API docs website lags behind; canonical source is vscode.d.ts on GitHub.
 - Missing `sources` key in nearvar.yaml is forgiving — coerces to empty defaults, no error card. Only parse failure, wrong top-level type, or `sources` being a non-mapping shows the error card.
@@ -88,7 +93,7 @@
 
 - [x] All v1 SEPs complete and smoke tested on Linux
 - [x] `npm run compile` — zero errors, zero warnings
-- [x] `package.json` version `0.1.0`, metadata, galleryBanner, repository URLs
+- [x] `package.json` version `0.2.0`, metadata, galleryBanner, repository URLs
 - [x] `images/icon.svg` — 24×24 outline, `currentColor`, themeable activitybar icon
 - [x] `images/icon.png` — 128×128 PNG, wired as `"icon"` in package.json
 - [x] `README.md` — rewritten for Marketplace
@@ -100,7 +105,7 @@
 
 ## Next SEP
 
-**SEP-08: Remote URL sources (v2) — not scheduled**
+**Remote URL sources (v2) — not scheduled**
 
 ## Session continuity
 

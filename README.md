@@ -17,6 +17,8 @@ NearVar is a VS Code sidebar extension that surfaces your shell environment, AWS
 - **AWS profiles** — reads `~/.aws/config` and `~/.aws/credentials`
 - **Runbook commands** — indexes fenced bash blocks from markdown files you configure
 - **Editor CodeLens** — click `▶ NearVar: <heading>` above any fenced bash block in a configured runbook to paste directly from the editor
+- **Search/filter** — type in the filter bar to narrow any section instantly; `.env` values are intentionally excluded from search
+- **Collapsible sections** — click any section header to collapse or expand it; configure which sections start collapsed via `ui.collapsed` in `nearvar.yaml`
 - **Paste without executing** — text lands in the terminal prompt, you press Enter to run. Never executes automatically.
 
 ## Getting started
@@ -50,6 +52,11 @@ sources:
   env:
     - .env                    # .env files relative to workspace
   aws: true                   # read ~/.aws/config profiles
+
+ui:
+  # Sections collapsed by default — expand by clicking the header
+  # Valid values: runbooks, bash, env, aws, custom
+  collapsed: []
 ```
 
 Only fenced bash code blocks are indexed from runbook files:
