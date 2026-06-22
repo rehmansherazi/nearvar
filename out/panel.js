@@ -191,6 +191,11 @@ class NearVarPanel {
             '  bash: true            # read ~/.bashrc / ~/.bash_profile',
             '  env: []               # .env files relative to this workspace',
             '  aws: true             # read ~/.aws/config profiles',
+            '',
+            'ui:',
+            '  # Sections collapsed by default — expand by clicking the header',
+            '  # Valid values: runbooks, bash, env, aws, custom',
+            '  collapsed: []',
         ].join('\n') + '\n';
         try {
             fs.writeFileSync(p, template, 'utf8');
@@ -218,6 +223,7 @@ class NearVarPanel {
             }
         }
         const body = this._hasConfig() ? this._mainContent(config, configError) : this._welcomeCard();
+        const searchBar = config ? `<div class="search-bar"><input type="text" id="nv-search" placeholder="Filter..." autocomplete="off" spellcheck="false"></div>` : '';
         return `<!DOCTYPE html>
 <html>
 <head>
@@ -233,7 +239,9 @@ class NearVarPanel {
   .welcome-card p { font-size: 12px; color: var(--vscode-descriptionForeground); margin: 0 0 12px; line-height: 1.5; }
   .welcome-card button { background: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; padding: 6px 12px; border-radius: 3px; cursor: pointer; font-size: 12px; }
   .welcome-card button:hover { background: var(--vscode-button-hoverBackground); }
-  .section-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--vscode-descriptionForeground); padding: 10px 4px 3px; }
+  .section-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--vscode-descriptionForeground); padding: 10px 4px 3px; cursor: pointer; display: flex; align-items: center; gap: 4px; user-select: none; }
+  .section-label:hover { color: var(--vscode-foreground); }
+  .section-chevron { font-size: 10px; opacity: 0.7; flex-shrink: 0; }
   .item { display: flex; align-items: center; padding: 4px 4px; border-radius: 3px; cursor: pointer; gap: 4px; }
   .item:hover { background: var(--vscode-list-hoverBackground); }
   .item-body { flex: 1; min-width: 0; }
@@ -254,12 +262,18 @@ class NearVarPanel {
   .block-source { font-weight: normal; color: var(--vscode-descriptionForeground); font-size: 10px; }
   .block-lines { padding-left: 16px; }
   .source-error { font-size: 11px; color: var(--vscode-editorWarning-foreground, #cca700); padding: 3px 4px; }
+  .search-bar { padding: 5px 8px; border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border); }
+  #nv-search { width: 100%; box-sizing: border-box; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border, transparent); padding: 4px 6px; font-family: var(--vscode-font-family); font-size: 12px; border-radius: 2px; outline: none; }
+  #nv-search:focus { border-color: var(--vscode-focusBorder); }
+  #nv-search::placeholder { color: var(--vscode-input-placeholderForeground); }
+  [hidden] { display: none !important; }
 </style>
 </head>
 <body>
   <div class="ctx-bar">
     <span>${context}</span><span class="ctx-sep">·</span><span>${homedir}</span>
   </div>
+  ${searchBar}
   <div class="content">
     ${body}
   </div>
@@ -288,6 +302,55 @@ class NearVarPanel {
         arrow.textContent = lines.hidden ? '▶' : '▼';
       });
     });
+    document.querySelectorAll('.section-label').forEach(function(label) {
+      label.addEventListener('click', function() {
+        var items = this.nextElementSibling;
+        var chevron = this.querySelector('.section-chevron');
+        items.hidden = !items.hidden;
+        if (chevron) { chevron.innerHTML = items.hidden ? '&#9658;' : '&#9660;'; }
+      });
+    });
+    var _nvSearch = document.getElementById('nv-search');
+    if (_nvSearch) {
+      var _debounce;
+      var _collapseSnapshot = null;
+      _nvSearch.addEventListener('input', function() {
+        clearTimeout(_debounce);
+        var val = this.value;
+        var trimmed = val.trim();
+        if (_collapseSnapshot === null && trimmed !== '') {
+          _collapseSnapshot = new Map();
+          document.querySelectorAll('.section-items').forEach(function(si) {
+            _collapseSnapshot.set(si, si.hidden);
+            si.hidden = false;
+          });
+        }
+        _debounce = setTimeout(function() { applyFilter(trimmed.toLowerCase()); }, 150);
+      });
+      function applyFilter(q) {
+        var isEmpty = q === '';
+        document.querySelectorAll('.section-items > .item').forEach(function(el) {
+          el.hidden = !isEmpty && !(el.dataset.searchTerms || '').toLowerCase().includes(q);
+        });
+        document.querySelectorAll('.section-items > .block-group').forEach(function(el) {
+          el.hidden = !isEmpty && !(el.dataset.searchTerms || '').toLowerCase().includes(q);
+        });
+        document.querySelectorAll('.section-wrapper').forEach(function(wrapper) {
+          var sectionItems = wrapper.querySelector('.section-items');
+          if (!sectionItems) { return; }
+          if (isEmpty) {
+            if (_collapseSnapshot !== null) {
+              sectionItems.hidden = _collapseSnapshot.get(sectionItems) || false;
+            }
+            wrapper.hidden = false;
+            return;
+          }
+          var hasVisible = Array.from(sectionItems.querySelectorAll(':scope > .item, :scope > .block-group')).some(function(c) { return !c.hidden; });
+          wrapper.hidden = !hasVisible;
+        });
+        if (isEmpty) { _collapseSnapshot = null; }
+      }
+    }
   </script>
 </body>
 </html>`;
@@ -306,10 +369,12 @@ class NearVarPanel {
         if (!config) {
             return errorCard;
         }
+        const collapsedSet = new Set(config.ui.collapsed);
         const item = (label, value) => {
             const el = escapeHtml(label);
             const ev = escapeHtml(value);
-            return `<div class="item" data-value="${ev}">` +
+            const et = escapeHtml(label + '|' + value);
+            return `<div class="item" data-value="${ev}" data-search-terms="${et}">` +
                 `<div class="item-body">` +
                 `<span class="item-label">${el}</span>` +
                 `<span class="item-value">${ev}</span>` +
@@ -317,14 +382,35 @@ class NearVarPanel {
                 `<button class="copy-btn" data-value="${ev}">Copy</button>` +
                 `</div>`;
         };
-        const section = (title, items) => `<div class="section-label">${escapeHtml(title)}</div>${items}`;
+        const section = (title, items, collapsed = false) => {
+            const chevron = collapsed ? '&#9658;' : '&#9660;';
+            return `<div class="section-wrapper">` +
+                `<div class="section-label"><span class="section-chevron">${chevron}</span>${escapeHtml(title)}</div>` +
+                `<div class="section-items" data-collapsed-default="${collapsed}"${collapsed ? ' hidden' : ''}>${items}</div>` +
+                `</div>`;
+        };
         const varItem = (v) => {
             const eName = escapeHtml(v.name);
             const pasteVal = v.dynamic ? `$${eName}` : escapeHtml(v.value);
             const valueSpan = v.dynamic
                 ? `<span class="item-value dynamic">&#9888; dynamic</span>`
                 : `<span class="item-value">${escapeHtml(v.value)}</span>`;
-            return `<div class="item" data-value="${pasteVal}">` +
+            const et = v.dynamic ? eName : escapeHtml(v.name + '|' + v.value);
+            return `<div class="item" data-value="${pasteVal}" data-search-terms="${et}">` +
+                `<div class="item-body">` +
+                `<span class="item-label">${eName}</span>` +
+                valueSpan +
+                `</div>` +
+                `<button class="copy-btn" data-value="${pasteVal}">Copy</button>` +
+                `</div>`;
+        };
+        const envVarItem = (v) => {
+            const eName = escapeHtml(v.name);
+            const pasteVal = v.dynamic ? `$${eName}` : escapeHtml(v.value);
+            const valueSpan = v.dynamic
+                ? `<span class="item-value dynamic">&#9888; dynamic</span>`
+                : `<span class="item-value">${escapeHtml(v.value)}</span>`;
+            return `<div class="item" data-value="${pasteVal}" data-search-terms="${eName}">` +
                 `<div class="item-body">` +
                 `<span class="item-label">${eName}</span>` +
                 valueSpan +
@@ -334,7 +420,7 @@ class NearVarPanel {
         };
         const bashVars = config.sources.bash ? (0, bashReader_1.readBashVars)() : [];
         const bashSection = bashVars.length > 0
-            ? section('Bash Variables', bashVars.map(varItem).join(''))
+            ? section('Bash Variables', bashVars.map(varItem).join(''), collapsedSet.has('bash'))
             : '';
         const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
         const docResults = workspaceRoot && config.sources.runbooks.length > 0
@@ -346,7 +432,8 @@ class NearVarPanel {
             const eAbs = escapeHtml(b.absPath);
             if (b.lines.length === 1) {
                 const ev = escapeHtml(b.lines[0]);
-                return `<div class="item" data-value="${ev}" title="${eAbs}">` +
+                const et = escapeHtml(b.label + '|' + b.lines[0]);
+                return `<div class="item" data-value="${ev}" data-search-terms="${et}" title="${eAbs}">` +
                     `<div class="item-body">` +
                     `<span class="item-label">${eLabel}<span class="block-source"> · ${eRel}</span></span>` +
                     `<span class="item-value">${ev}</span>` +
@@ -361,7 +448,8 @@ class NearVarPanel {
                     `<button class="copy-btn" data-value="${ev}">Copy</button>` +
                     `</div>`;
             }).join('');
-            return `<div class="block-group">` +
+            const groupTerms = escapeHtml([b.label, ...b.lines].join('|'));
+            return `<div class="block-group" data-search-terms="${groupTerms}">` +
                 `<div class="block-header" title="${eAbs}">` +
                 `<span class="block-arrow">▶</span>` +
                 `<div class="item-body">` +
@@ -375,7 +463,7 @@ class NearVarPanel {
             ? [`<div class="source-error">&#9888; ${escapeHtml(sr.sourcePath)} — ${escapeHtml(sr.error)}</div>`]
             : sr.blocks.map(renderBlock));
         const runbooksSection = docItems.length > 0
-            ? section('Runbooks', docItems.join(''))
+            ? section('Runbooks', docItems.join(''), collapsedSet.has('runbooks'))
             : '';
         const envVars = [];
         if (workspaceRoot) {
@@ -384,7 +472,7 @@ class NearVarPanel {
             }
         }
         const envSection = envVars.length > 0
-            ? section('.env Variables', envVars.map(varItem).join(''))
+            ? section('.env Variables', envVars.map(envVarItem).join(''), collapsedSet.has('env'))
             : '';
         const awsProfiles = config.sources.aws ? (0, awsReader_1.readAwsProfiles)() : [];
         const awsProfileItem = (p) => {
@@ -393,7 +481,8 @@ class NearVarPanel {
             const regionSpan = p.region
                 ? `<span class="item-value">${escapeHtml(p.region)}</span>`
                 : '';
-            return `<div class="item" data-value="${pasteVal}">` +
+            const et = escapeHtml(p.name + (p.region ? '|' + p.region : ''));
+            return `<div class="item" data-value="${pasteVal}" data-search-terms="${et}">` +
                 `<div class="item-body">` +
                 `<span class="item-label">${eName}</span>` +
                 regionSpan +
@@ -402,7 +491,7 @@ class NearVarPanel {
                 `</div>`;
         };
         const awsSection = awsProfiles.length > 0
-            ? section('AWS Profiles', awsProfiles.map(awsProfileItem).join(''))
+            ? section('AWS Profiles', awsProfiles.map(awsProfileItem).join(''), collapsedSet.has('aws'))
             : '';
         return [
             runbooksSection,
@@ -411,7 +500,7 @@ class NearVarPanel {
             envSection,
             awsSection,
             '<div class="divider"></div>',
-            section('Custom', item('Running containers', 'docker ps -a')),
+            section('Custom', item('Running containers', 'docker ps -a'), collapsedSet.has('custom')),
         ].join('');
     }
 }

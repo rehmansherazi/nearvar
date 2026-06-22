@@ -16,6 +16,9 @@ export interface NearVarConfig {
         env: string[];
         aws: boolean;
     };
+    ui: {
+        collapsed: string[];
+    };
 }
 
 export type ConfigResult =
@@ -56,6 +59,15 @@ export function loadConfig(configPath: string): ConfigResult {
 
     const s = (src ?? {}) as Record<string, unknown>;
 
+    let collapsed: string[] = [];
+    const rawUi = obj.ui;
+    if (rawUi && typeof rawUi === 'object' && !Array.isArray(rawUi)) {
+        const rawCollapsed = (rawUi as Record<string, unknown>).collapsed;
+        if (Array.isArray(rawCollapsed)) {
+            collapsed = toStringArray(rawCollapsed);
+        }
+    }
+
     const config: NearVarConfig = {
         sources: {
             runbooks: toRunbookArray(s.runbooks),
@@ -63,6 +75,7 @@ export function loadConfig(configPath: string): ConfigResult {
             env: toStringArray(s.env),
             aws: s.aws === true,
         },
+        ui: { collapsed },
     };
 
     return { ok: true, config };

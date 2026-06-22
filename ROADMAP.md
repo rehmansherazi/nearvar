@@ -18,7 +18,8 @@
 
 ## Parking lot — decided, not yet scheduled
 
-- Azure and GCP profile reading (same pattern as AWS)
+- SEP-09: GCP profile reader (gcp: true in nearvar.yaml)
+- SEP-10: Azure profile reader (azure: true in nearvar.yaml)
 - Terminal pin — lock paste target to specific terminal session
 - 1Password / Bitwarden CLI integration — v2+, requires dedicated security review
 - Telemetry — not in v1, revisit after launch

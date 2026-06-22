@@ -67,6 +67,14 @@ function loadConfig(configPath) {
         return { ok: false, error: "'sources' must be a YAML mapping." };
     }
     const s = (src ?? {});
+    let collapsed = [];
+    const rawUi = obj.ui;
+    if (rawUi && typeof rawUi === 'object' && !Array.isArray(rawUi)) {
+        const rawCollapsed = rawUi.collapsed;
+        if (Array.isArray(rawCollapsed)) {
+            collapsed = toStringArray(rawCollapsed);
+        }
+    }
     const config = {
         sources: {
             runbooks: toRunbookArray(s.runbooks),
@@ -74,6 +82,7 @@ function loadConfig(configPath) {
             env: toStringArray(s.env),
             aws: s.aws === true,
         },
+        ui: { collapsed },
     };
     return { ok: true, config };
 }

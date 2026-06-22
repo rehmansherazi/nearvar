@@ -162,3 +162,11 @@ This file is immutable. Every locked decision is recorded here with rationale an
 **Choice:** nearvar.yaml is the sole gating mechanism. Runbook sources support a file/folder allowlist with exclude glob patterns (minimatch) and a recursive flag. recursive defaults to true. String shorthand supported for simple cases.
 **Rationale:** Frontmatter creates wrong ownership coupling — it requires write access to every markdown file you want to surface. This does not work for repos the user does not control (third-party playbooks, shared team wikis, cloned reference repos). nearvar.yaml is the right boundary: the user explicitly lists what to index.
 **Decision date:** 2026-06-18 (SEP-06 spec update)
+
+---
+
+### GCP and Azure profile reading — deferred to v2
+
+**Choice:** Not in v1. Will follow the same pattern as AWS (boolean toggle in nearvar.yaml sources section: `gcp: true`, `azure: true`). GCP reads from `~/.config/gcloud/configurations/`. Azure reads from `~/.azure/azureProfile.json`. Schema reserved — existing nearvar.yaml files will not need changes when v2 adds these.
+**Rationale:** AWS covers the primary use case at launch. GCP and Azure parsing require their own readers and smoke tests on platforms where those CLIs are present. Deferred to avoid scope creep in v1.
+**Decision date:** 2026-06-21
