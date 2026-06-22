@@ -1,8 +1,8 @@
 # NearVar — Current State Snapshot
 
-**Last updated:** Fence tag expansion + README rewrite — 2026-06-22
+**Last updated:** Security audit complete, publish-ready — 2026-06-22
 **Extension version:** 0.2.0
-**Status:** All v1 SEPs complete plus SEP-08 panel UX (search/filter + collapsible sections). FENCE_OPEN expanded to bash/sh/shell/zsh. README fully rewritten for Marketplace. Pending: copy screenshots to images/screenshots/, create GitHub repo, push main, then vsce publish.
+**Status:** All v1 SEPs complete plus SEP-08 panel UX. Security audit passed. All pre-publish blockers resolved. Pending: copy screenshots to images/screenshots/, create GitHub repo, push main, then vsce publish.
 
 ## What works
 
@@ -26,6 +26,10 @@
 - Variables with `$()` in value shown with `⚠ dynamic` badge; clicking pastes `$VAR_NAME`; value never shown
 - Bash and .env sections hidden entirely when source disabled or returns no vars
 - `readDocSources()` indexes fenced code blocks from `.md` files in `sources.runbooks`; supported fence tags: `bash`, `sh`, `shell`, `zsh` (FENCE_OPEN regex in `docReader.ts`)
+- `.env` variable values masked as `••••••••` in panel display (actual value still pasted on click); values excluded from search index
+- postMessage handler has runtime type guard (`typeof msg.value !== 'string'`) on `paste` and `copy` commands
+- `LICENSE` (MIT), `"license": "MIT"` in package.json, categories corrected to `["Other"]`
+- `.vscodeignore` updated: `demoscripts/`, `NEARVAR_*.md`, `.claude/`, `nearvar_locked_spec.docx` excluded from VSIX
 - Folder sources: recursive `.md` scan (no frontmatter gate), `relPath` relative to source folder
 - File sources: indexed directly
 - `recursive: false` limits scan to top-level `.md` files only (no subfolder traversal)
@@ -72,7 +76,7 @@
 
 ## Last commit
 
-0d06b31 — feat: expand CodeLens to bash/sh/shell/zsh + full README rewrite
+ae20771 — Security fixes: LICENSE, .env masking, type guards, .vscodeignore cleanup, package.json categories
 
 ## Smoke test notes
 
