@@ -1,8 +1,8 @@
 # NearVar — Current State Snapshot
 
-**Last updated:** SEP-08 complete — 2026-06-21
+**Last updated:** Fence tag expansion + README rewrite — 2026-06-22
 **Extension version:** 0.2.0
-**Status:** All v1 SEPs complete plus SEP-08 panel UX (search/filter + collapsible sections). Publish prep done. Pending: create GitHub repo, push main, then vsce publish.
+**Status:** All v1 SEPs complete plus SEP-08 panel UX (search/filter + collapsible sections). FENCE_OPEN expanded to bash/sh/shell/zsh. README fully rewritten for Marketplace. Pending: copy screenshots to images/screenshots/, create GitHub repo, push main, then vsce publish.
 
 ## What works
 
@@ -25,7 +25,7 @@
 - `readEnvFile()` reads workspace-relative `.env` files; parses `VAR=value`; same guards
 - Variables with `$()` in value shown with `⚠ dynamic` badge; clicking pastes `$VAR_NAME`; value never shown
 - Bash and .env sections hidden entirely when source disabled or returns no vars
-- `readDocSources()` indexes fenced bash blocks from `.md` files in `sources.runbooks`
+- `readDocSources()` indexes fenced code blocks from `.md` files in `sources.runbooks`; supported fence tags: `bash`, `sh`, `shell`, `zsh` (FENCE_OPEN regex in `docReader.ts`)
 - Folder sources: recursive `.md` scan (no frontmatter gate), `relPath` relative to source folder
 - File sources: indexed directly
 - `recursive: false` limits scan to top-level `.md` files only (no subfolder traversal)
@@ -72,7 +72,7 @@
 
 ## Last commit
 
-e7d21cf — SEP-08: Panel search/filter and collapsible sections
+0d06b31 — feat: expand CodeLens to bash/sh/shell/zsh + full README rewrite
 
 ## Smoke test notes
 

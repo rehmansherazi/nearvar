@@ -94,6 +94,22 @@ Requires:
 
 Run `demoscripts/nearvar_demo_setup.sh` to populate realistic runbooks, bash vars, `.env`, and AWS profiles for screenshots or manual testing. Run `demoscripts/nearvar_demo_cleanup.sh` to fully restore your system afterward (including original `~/.aws` files if present).
 
+## Screenshots
+
+README.md references screenshots at `images/screenshots/scenario*.png`. The folder `images/screenshots/` is tracked (`.gitkeep` present) but the PNG files must be copied there manually before running `vsce publish`:
+
+| File | Content |
+|------|---------|
+| `scenario1_welcome_card.png` | Welcome card — no config file present |
+| `scenario2_full_panel.png` | Full panel — all sections populated |
+| `scenario3_paste_action.png` | Item clicked — command in terminal prompt |
+| `scenario4b_expanded_block.png` | Multi-line block expanded |
+| `scenario5_codelens.png` | CodeLens above fenced block in editor |
+| `scenario6_config.png` | nearvar.yaml open in editor |
+| `scenario7_dynamic_badge.png` | Dynamic variable with ⚠ badge |
+
+Use `demoscripts/nearvar_demo_setup.sh` to populate the panel before capturing screenshots.
+
 ## Syncbridge reference
 
 The Syncbridge extension (`/home/rehman/repos/syncbridge`) is the reference implementation for:
