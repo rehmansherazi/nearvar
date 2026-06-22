@@ -39,7 +39,8 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
                     this._createNearvarYaml();
                     break;
                 case 'paste': {
-                    const value = msg.value as string;
+                    if (typeof msg.value !== 'string') { break; }
+                    const value = msg.value;
                     const terminal = vscode.window.activeTerminal;
                     if (terminal) {
                         terminal.show();
@@ -51,9 +52,11 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
                     }
                     break;
                 }
-                case 'copy':
-                    await vscode.env.clipboard.writeText(msg.value as string);
+                case 'copy': {
+                    if (typeof msg.value !== 'string') { break; }
+                    await vscode.env.clipboard.writeText(msg.value);
                     break;
+                }
             }
         });
 
@@ -379,7 +382,7 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
             const pasteVal = v.dynamic ? `$${eName}` : escapeHtml(v.value);
             const valueSpan = v.dynamic
                 ? `<span class="item-value dynamic">&#9888; dynamic</span>`
-                : `<span class="item-value">${escapeHtml(v.value)}</span>`;
+                : `<span class="item-value">••••••••</span>`;
             return `<div class="item" data-value="${pasteVal}" data-search-terms="${eName}">` +
                 `<div class="item-body">` +
                 `<span class="item-label">${eName}</span>` +

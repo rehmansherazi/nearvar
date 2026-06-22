@@ -4,13 +4,12 @@
   "description": "NearVar — environment variables, cloud profiles, and runbook commands. Always within reach.",
   "version": "0.2.0",
   "publisher": "rehmansherazi",
+  "license": "MIT",
   "engines": {
     "vscode": "^1.100.0"
   },
   "categories": [
-    "Other",
-    "Snippets",
-    "Keymaps"
+    "Other"
   ],
   "keywords": [
     "environment variables",

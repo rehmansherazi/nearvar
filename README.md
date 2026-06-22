@@ -130,7 +130,36 @@ Valid section names: `runbooks`, `bash`, `env`, `aws`, `custom`
 
 ## Security
 
-NearVar is read-only and local-first. It never authenticates to any resource, never stores tokens, and never transmits data. Variable values are never logged. All content is HTML-escaped before display. `.env` variable values are excluded from search.
+NearVar is built with a security-first philosophy. Here is exactly what it does and does not do:
+
+**What NearVar reads:**
+- `~/.bashrc` or `~/.bash_profile` — variable names and values
+- `.env` files you explicitly configure — variable names and values
+- `~/.aws/config` — profile names and regions only
+- `~/.aws/credentials` — profile names only, never key values
+- Markdown runbook files you explicitly configure — fenced code blocks only
+
+**What NearVar never does:**
+- Never stores any data — variables, credentials, or commands are held in memory only while the panel is visible
+- Never transmits any data — no analytics, no telemetry, no network calls of any kind
+- Never executes commands — paste only, you always press Enter to run
+- Never authenticates — if a resource is inaccessible, NearVar reports it and stops
+- Never logs variable values — names may appear in debug output, values never do
+- Never searches `.env` variable values — `.env` values are excluded from the search index to prevent accidental exposure
+
+**How NearVar protects your data in the webview:**
+- Content Security Policy (CSP) using VS Code's `webview.cspSource` — no external scripts, no inline execution
+- All dynamic content (variable names, values, file paths, headings) is HTML-escaped before display — XSS is not possible through NearVar's rendering pipeline
+- AWS secret key material (access key IDs and secret keys) is never read into memory — only profile names and regions are extracted from credentials files
+- `.env` variable values are masked (••••••••) in the panel and excluded from the search index entirely
+
+**Dependency security:**
+- Minimal dependency footprint — only `js-yaml` (YAML parsing) and `minimatch` (glob pattern matching)
+- Both dependencies are audited with `npm audit` before every release — zero known vulnerabilities at time of publish
+
+**Open source:**
+- Full source code available at [github.com/rehmansherazi/nearvar](https://github.com/rehmansherazi/nearvar)
+- You can audit exactly what NearVar reads and how it handles your data
 
 ## Known limitations (v1)
 

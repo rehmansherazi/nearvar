@@ -11,3 +11,10 @@ node_modules/**
 tsconfig.json
 .vscode/launch.json
 .vscode/tasks.json
+demoscripts/
+NEARVAR_CONVENTIONS.md
+NEARVAR_DECISIONS.md
+NEARVAR_CONTEXT.md
+NEARVAR_ENVIRONMENT.md
+nearvar_locked_spec.docx
+.claude/
