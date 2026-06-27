@@ -4557,9 +4557,11 @@ var NearVarPanel = class {
   _view;
   _yamlWatcher;
   _docWatchers = [];
-  resolveWebviewView(webviewView, _context, _token) {
+  _activeFolder;
+  async resolveWebviewView(webviewView, _context, _token) {
     this._view = webviewView;
     webviewView.webview.options = { enableScripts: true };
+    this._activeFolder = await this._resolveFolder();
     webviewView.webview.html = this._getHtml(webviewView.webview);
     webviewView.webview.onDidReceiveMessage(async (msg) => {
       switch (msg.command) {
@@ -4591,10 +4593,9 @@ var NearVarPanel = class {
         }
       }
     });
-    const folder = vscode.workspace.workspaceFolders?.[0];
-    if (folder) {
+    if (this._activeFolder) {
       this._yamlWatcher = vscode.workspace.createFileSystemWatcher(
-        new vscode.RelativePattern(folder, "nearvar.yaml")
+        new vscode.RelativePattern(this._activeFolder, "nearvar.yaml")
       );
       this._yamlWatcher.onDidCreate(() => this._refresh());
       this._yamlWatcher.onDidChange(() => this._refresh());
@@ -4626,7 +4627,7 @@ var NearVarPanel = class {
     if (!result.ok) {
       return;
     }
-    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    const workspaceRoot = this._activeFolder?.uri.fsPath;
     if (!workspaceRoot) {
       return;
     }
@@ -4648,12 +4649,38 @@ var NearVarPanel = class {
       this._docWatchers.push(w);
     }
   }
-  _configPath() {
+  async _resolveFolder() {
     const folders = vscode.workspace.workspaceFolders;
     if (!folders || folders.length === 0) {
       return void 0;
     }
-    return path5.join(folders[0].uri.fsPath, "nearvar.yaml");
+    if (folders.length === 1) {
+      return folders[0];
+    }
+    const withConfig = folders.filter(
+      (f) => fs5.existsSync(path5.join(f.uri.fsPath, "nearvar.yaml"))
+    );
+    if (withConfig.length === 0) {
+      return folders[0];
+    }
+    if (withConfig.length === 1) {
+      return withConfig[0];
+    }
+    const items = withConfig.map((f) => ({
+      label: f.name,
+      description: f.uri.fsPath,
+      folder: f
+    }));
+    const pick = await vscode.window.showQuickPick(items, {
+      placeHolder: "Multiple folders have nearvar.yaml \u2014 pick one"
+    });
+    return pick?.folder ?? withConfig[0];
+  }
+  _configPath() {
+    if (!this._activeFolder) {
+      return void 0;
+    }
+    return path5.join(this._activeFolder.uri.fsPath, "nearvar.yaml");
   }
   _hasConfig() {
     const p = this._configPath();
@@ -4906,7 +4933,7 @@ var NearVarPanel = class {
     };
     const bashVars = config.sources.bash ? readBashVars() : [];
     const bashSection = bashVars.length > 0 ? section("Bash Variables", bashVars.map(varItem).join(""), collapsedSet.has("bash")) : "";
-    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    const workspaceRoot = this._activeFolder?.uri.fsPath;
     const docResults = workspaceRoot && config.sources.runbooks.length > 0 ? readDocSources(config.sources.runbooks, workspaceRoot) : [];
     const renderBlock = (b) => {
       const eLabel = escapeHtml(b.label);
