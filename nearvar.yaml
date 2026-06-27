@@ -16,4 +16,4 @@ sources:
     []
   bash: true
   env: []
-  aws: true
+    # aws: true

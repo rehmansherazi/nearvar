@@ -69,6 +69,9 @@ class NearVarPanel {
                     this._createNearvarYaml();
                     break;
                 case 'paste': {
+                    if (typeof msg.value !== 'string') {
+                        break;
+                    }
                     const value = msg.value;
                     const terminal = vscode.window.activeTerminal;
                     if (terminal) {
@@ -82,9 +85,13 @@ class NearVarPanel {
                     }
                     break;
                 }
-                case 'copy':
+                case 'copy': {
+                    if (typeof msg.value !== 'string') {
+                        break;
+                    }
                     await vscode.env.clipboard.writeText(msg.value);
                     break;
+                }
             }
         });
         const folder = vscode.workspace.workspaceFolders?.[0];
@@ -409,7 +416,7 @@ class NearVarPanel {
             const pasteVal = v.dynamic ? `$${eName}` : escapeHtml(v.value);
             const valueSpan = v.dynamic
                 ? `<span class="item-value dynamic">&#9888; dynamic</span>`
-                : `<span class="item-value">${escapeHtml(v.value)}</span>`;
+                : `<span class="item-value">••••••••</span>`;
             return `<div class="item" data-value="${pasteVal}" data-search-terms="${eName}">` +
                 `<div class="item-body">` +
                 `<span class="item-label">${eName}</span>` +

@@ -39,7 +39,7 @@ const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const minimatch_1 = require("minimatch");
 const MAX_BYTES = 512 * 1024;
-const FENCE_OPEN = /^```bash\s*$/;
+const FENCE_OPEN = /^```(bash|sh|shell|zsh)\s*$/;
 const FENCE_CLOSE = /^```\s*$/;
 const HEADING_RE = /^#{1,6}\s+(.+)$/;
 function readRaw(filePath) {
