@@ -2,7 +2,7 @@
   "name": "nearvar",
   "displayName": "NearVar",
   "description": "NearVar — environment variables, cloud profiles, and runbook commands. Always within reach.",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "publisher": "rehmansherazi",
   "license": "MIT",
   "engines": {
@@ -62,6 +62,10 @@
       {
         "command": "nearvar.pasteToTerminal",
         "title": "NearVar: Paste to Terminal"
+      },
+      {
+        "command": "nearvar.switchFolder",
+        "title": "NearVar: Switch Workspace Folder"
       }
     ],
     "keybindings": [

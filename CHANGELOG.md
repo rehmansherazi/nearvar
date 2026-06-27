@@ -22,6 +22,20 @@ Smoke test: `npm run compile` — zero errors, zero warnings.
 
 ---
 
+## [0.2.5] — fix: multi-root workspace — scan all folders, follow active editor for create — 2026-06-27
+
+Multi-root workspace support across three areas:
+
+**Folder resolution on panel open**: scans all `workspaceFolders` for `nearvar.yaml`. Exactly one match → uses it silently. Multiple matches → quick-pick lets user choose. No match → falls back to `workspaceFolders[0]` and shows welcome card.
+
+**Active-editor-aware create**: "Create nearvar.yaml" button now targets the workspace folder of the currently active editor (falls back to `workspaceFolders[0]` if no editor is open). If `nearvar.yaml` already exists in that folder, opens it instead of overwriting. After creation, NearVar switches its active folder to match.
+
+**Switch Workspace Folder command**: new `NearVar: Switch Workspace Folder` command (Command Palette) shows a quick-pick of all workspace folders at any time, letting users switch which folder NearVar reads from without reloading the window.
+
+**Welcome card hint**: below the "Create nearvar.yaml" button, a muted-yellow line shows exactly where the file will land. Updates in real time as the active editor changes (via `postMessage` from extension → webview on `onDidChangeActiveTextEditor`). Hint disappears once a `nearvar.yaml` is found and the panel is populated.
+
+---
+
 ## [0.2.0] — SEP-08: Panel search/filter and collapsible sections — 2026-06-21
 
 Added live search/filter bar (below context bar, above sections, visible only when config is valid). 150ms debounce, client-side substring match on `data-search-terms` attributes. Filter scope per section type: runbook label + command value; bash var name + value (dynamic: name only); .env var name only (value intentionally excluded — "not a secrets manager" promise); AWS profile name + region; custom item label + value. Sections with no matching items hide their entire wrapper. Clearing filter restores the pre-filter panel state.

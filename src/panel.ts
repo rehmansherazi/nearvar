@@ -75,7 +75,15 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
 
         this._setupDocWatchers();
 
+        const editorSub = vscode.window.onDidChangeActiveTextEditor(() => {
+            if (!this._hasConfig() && this._view) {
+                const folderPath = this._getCreateFolder() ?? '';
+                void this._view.webview.postMessage({ command: 'updateCreateHint', path: folderPath });
+            }
+        });
+
         webviewView.onDidDispose(() => {
+            editorSub.dispose();
             this._yamlWatcher?.dispose();
             this._yamlWatcher = undefined;
             this._docWatchers.forEach(w => w.dispose());
@@ -157,10 +165,58 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
         }
     }
 
+    private _getCreateFolder(): string | undefined {
+        const activeUri = vscode.window.activeTextEditor?.document.uri;
+        if (activeUri && activeUri.scheme === 'file') {
+            const wf = vscode.workspace.getWorkspaceFolder(activeUri);
+            if (wf) { return wf.uri.fsPath; }
+        }
+        return this._activeFolder?.uri.fsPath;
+    }
+
+    private _resetYamlWatcher(): void {
+        this._yamlWatcher?.dispose();
+        this._yamlWatcher = undefined;
+        if (this._activeFolder) {
+            this._yamlWatcher = vscode.workspace.createFileSystemWatcher(
+                new vscode.RelativePattern(this._activeFolder, 'nearvar.yaml')
+            );
+            this._yamlWatcher.onDidCreate(() => this._refresh());
+            this._yamlWatcher.onDidChange(() => this._refresh());
+            this._yamlWatcher.onDidDelete(() => this._refresh());
+        }
+    }
+
+    async switchFolder(): Promise<void> {
+        const folders = vscode.workspace.workspaceFolders;
+        if (!folders || folders.length === 0) {
+            vscode.window.showInformationMessage('NearVar: No workspace folders open.');
+            return;
+        }
+        const items = folders.map(f => ({
+            label: f.name,
+            description: f.uri.fsPath,
+            folder: f,
+        }));
+        const pick = await vscode.window.showQuickPick(items, {
+            placeHolder: 'Select workspace folder for NearVar',
+        });
+        if (pick) {
+            this._activeFolder = pick.folder;
+            this._resetYamlWatcher();
+            this._refresh();
+        }
+    }
+
     private _createNearvarYaml(): void {
-        const p = this._configPath();
-        if (!p) {
+        const folderPath = this._getCreateFolder();
+        if (!folderPath) {
             vscode.window.showErrorMessage('NearVar: No workspace folder open. Open a folder first.');
+            return;
+        }
+        const p = path.join(folderPath, 'nearvar.yaml');
+        if (fs.existsSync(p)) {
+            vscode.workspace.openTextDocument(p).then(doc => vscode.window.showTextDocument(doc));
             return;
         }
         const template = [
@@ -205,6 +261,11 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
         } catch {
             vscode.window.showErrorMessage('NearVar: Could not create nearvar.yaml. Check folder permissions.');
             return;
+        }
+        const newFolder = vscode.workspace.getWorkspaceFolder(vscode.Uri.file(p));
+        if (newFolder) {
+            this._activeFolder = newFolder;
+            this._resetYamlWatcher();
         }
         this._refresh();
         vscode.workspace.openTextDocument(p).then(doc =>
@@ -356,16 +417,28 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
         if (isEmpty) { _collapseSnapshot = null; }
       }
     }
+    window.addEventListener('message', function(event) {
+      var msg = event.data;
+      if (msg.command === 'updateCreateHint') {
+        var hint = document.getElementById('nv-create-hint');
+        if (hint) { hint.textContent = 'Will be created in: ' + msg.path; }
+      }
+    });
   </script>
 </body>
 </html>`;
     }
 
     private _welcomeCard(): string {
+        const createPath = this._getCreateFolder();
+        const hint = createPath
+            ? `<p id="nv-create-hint" style="margin: 6px 0 0; font-size: 11px; color: #e5c07b;">Will be created in: ${escapeHtml(createPath)}</p>`
+            : '';
         return `<div class="welcome-card">
     <h2>Welcome to NearVar</h2>
     <p>Create a <code>nearvar.yaml</code> in your workspace to configure sources.</p>
     <button onclick="createConfig()">Create nearvar.yaml</button>
+    ${hint}
   </div>`;
     }
 

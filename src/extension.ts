@@ -26,6 +26,11 @@ export function activate(context: vscode.ExtensionContext): void {
         })
     );
     context.subscriptions.push(
+        vscode.commands.registerCommand('nearvar.switchFolder', () => {
+            void provider.switchFolder();
+        })
+    );
+    context.subscriptions.push(
         vscode.languages.registerCodeLensProvider(
             { scheme: 'file', language: 'markdown' },
             new NearVarCodeLensProvider()
