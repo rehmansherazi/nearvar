@@ -51,6 +51,8 @@ NearVar is a VS Code sidebar extension that surfaces your shell environment, AWS
 3. Click **Create nearvar.yaml** to scaffold a config file
 4. Edit `nearvar.yaml` to point at your runbook files or folders
 
+> **Note:** NearVar requires an open workspace folder. Open a folder in VS Code first (File → Open Folder), then click the NearVar icon.
+
 ## Example configuration
 
 ![nearvar.yaml annotated](images/screenshots/scenario8_yaml_config.png)
@@ -171,6 +173,7 @@ NearVar is built with a security-first philosophy. Here is exactly what it does 
 
 ## Known limitations (v1)
 
+- NearVar requires an open workspace folder — it will not load without one
 - Keyboard navigation not implemented — use mouse to click items
 - Remote URL and Git repository sources not supported — local filesystem only
 - Azure and GCP profiles not yet supported (planned for v2)

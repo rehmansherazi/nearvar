@@ -2,7 +2,7 @@
   "name": "nearvar",
   "displayName": "NearVar",
   "description": "NearVar — environment variables, cloud profiles, and runbook commands. Always within reach.",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "publisher": "rehmansherazi",
   "license": "MIT",
   "engines": {
@@ -73,14 +73,15 @@
     ]
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./"
+    "vscode:prepublish": "node esbuild.js --minify",
+    "compile": "node esbuild.js",
+    "watch": "node esbuild.js --watch"
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",
     "@types/node": "22.x",
     "@types/vscode": "^1.100.0",
+    "esbuild": "^0.28.1",
     "typescript": "^5.9.3"
   },
   "dependencies": {
