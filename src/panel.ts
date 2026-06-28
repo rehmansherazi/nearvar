@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as os from 'os';
 import * as fs from 'fs';
 import * as path from 'path';
-import { loadConfig, NearVarConfig } from './configReader';
+import { loadConfig, NearVarConfig, CustomEntry } from './configReader';
 import { readBashVars, readEnvFile, BashVar, isSensitive } from './bashReader';
 import { readDocSources, DocBlock } from './docReader';
 import { readAwsProfiles, AwsProfile } from './awsReader';
@@ -251,6 +251,7 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
                     env: [...homeEnv, ...ws.sources.env],
                     aws: home.sources.aws || ws.sources.aws,
                 },
+                custom: [...home.custom, ...ws.custom],
                 ui: ws.ui,
             },
             source: 'both',
@@ -391,6 +392,7 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
         } else if (noWorkspace) {
             const terminalConfig: NearVarConfig = {
                 sources: { runbooks: [], bash: true, env: [], aws: true },
+                custom: [],
                 ui: { collapsed: [] },
             };
             body = this._noFolderCard() + this._mainContent(terminalConfig, undefined, undefined);
@@ -708,14 +710,19 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
             ? section('AWS Profiles', awsProfiles.map(awsProfileItem).join(''), collapsedSet.has('aws'))
             : '';
 
+        const customItems = (config.custom ?? [] as CustomEntry[]).map(e => item(e.label, e.value)).join('');
+        const customSection = customItems
+            ? section('Custom', customItems, collapsedSet.has('custom'))
+            : '';
+
         return [
             runbooksSection,
             '<div class="divider"></div>',
             bashSection,
             envSection,
             awsSection,
-            '<div class="divider"></div>',
-            section('Custom', item('Running containers', 'docker ps -a'), collapsedSet.has('custom')),
+            customSection ? '<div class="divider"></div>' : '',
+            customSection,
         ].join('');
     }
 }

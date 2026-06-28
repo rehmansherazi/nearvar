@@ -22,6 +22,12 @@ Smoke test: `npm run compile` — zero errors, zero warnings.
 
 ---
 
+## [0.2.10] — fix: CUSTOM section no longer shows hardcoded demo data — 2026-06-28
+
+The CUSTOM section was always rendered with a hardcoded "Running containers / docker ps -a" entry regardless of whether `custom:` was present in `nearvar.yaml`. Fixed: `custom:` is now a parsed top-level key in `NearVarConfig` (array of `{label, value}` objects). The CUSTOM section and its preceding divider are only rendered when `custom:` is present in `nearvar.yaml` and contains at least one valid entry. When `custom:` is absent or empty the section is hidden entirely. `CustomEntry` is exported from `configReader.ts`. In merged (home + workspace) mode, custom entries are concatenated.
+
+---
+
 ## [0.2.9] — security: auto-mask sensitive bash variable values by name pattern — 2026-06-28
 
 Bash variable values matching sensitive name patterns are now automatically masked in the panel (displayed as `••••••••`). Masking is display-only — the actual value is still available for paste/copy. Masked variable names remain searchable; masked values are excluded from the search index.

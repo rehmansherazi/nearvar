@@ -9,6 +9,11 @@ export interface RunbookEntry {
     exclude: string[];
 }
 
+export interface CustomEntry {
+    label: string;
+    value: string;
+}
+
 export interface NearVarConfig {
     sources: {
         runbooks: RunbookEntry[];
@@ -16,6 +21,7 @@ export interface NearVarConfig {
         env: string[];
         aws: boolean;
     };
+    custom: CustomEntry[];
     ui: {
         collapsed: string[];
     };
@@ -75,6 +81,7 @@ export function loadConfig(configPath: string): ConfigResult {
             env: toStringArray(s.env),
             aws: s.aws === true,
         },
+        custom: toCustomArray(obj.custom),
         ui: { collapsed },
     };
 
@@ -100,6 +107,19 @@ function toRunbookArray(val: unknown): RunbookEntry[] {
             }];
         }
         console.warn('NearVar: skipping runbook entry — invalid type');
+        return [];
+    });
+}
+
+function toCustomArray(val: unknown): CustomEntry[] {
+    if (!Array.isArray(val)) { return []; }
+    return val.flatMap((entry): CustomEntry[] => {
+        if (entry && typeof entry === 'object' && !Array.isArray(entry)) {
+            const e = entry as Record<string, unknown>;
+            if (typeof e['label'] === 'string' && typeof e['value'] === 'string') {
+                return [{ label: e['label'], value: e['value'] }];
+            }
+        }
         return [];
     });
 }
