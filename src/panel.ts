@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { loadConfig, NearVarConfig, CustomEntry } from './configReader';
 import { readBashVars, readEnvFile, BashVar, isSensitive } from './bashReader';
-import { readDocSources, DocBlock } from './docReader';
+import { readDocSources, DocBlock, isRemoteUrl } from './docReader';
 import { readAwsProfiles, AwsProfile } from './awsReader';
 
 function escapeHtml(text: string): string {
@@ -37,7 +37,7 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
 
         this._activeFolder = await this._resolveFolder();
 
-        webviewView.webview.html = this._getHtml(webviewView.webview);
+        webviewView.webview.html = await this._getHtml(webviewView.webview);
 
         webviewView.webview.onDidReceiveMessage(async msg => {
             switch (msg.command) {
@@ -94,7 +94,7 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
         const workspaceFolderSub = vscode.workspace.onDidChangeWorkspaceFolders(async () => {
             this._activeFolder = await this._resolveFolder();
             this._resetYamlWatcher();
-            this._refresh();
+            void this._refresh();
         });
 
         webviewView.onDidDispose(() => {
@@ -110,11 +110,11 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
         });
     }
 
-    private _refresh(): void {
+    private async _refresh(): Promise<void> {
         this._docWatchers.forEach(w => w.dispose());
         this._docWatchers = [];
         if (this._view) {
-            this._view.webview.html = this._getHtml(this._view.webview);
+            this._view.webview.html = await this._getHtml(this._view.webview);
         }
         this._setupDocWatchers();
     }
@@ -125,6 +125,7 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
         const wsRoot = this._activeFolder?.uri.fsPath;
 
         for (const entry of config.sources.runbooks) {
+            if (isRemoteUrl(entry.path) || entry.path.startsWith('http://')) { continue; }
             const abs = path.isAbsolute(entry.path)
                 ? entry.path
                 : (wsRoot ? path.join(wsRoot, entry.path) : undefined);
@@ -298,7 +299,7 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
         if (pick) {
             this._activeFolder = pick.folder;
             this._resetYamlWatcher();
-            this._refresh();
+            void this._refresh();
         }
     }
 
@@ -359,13 +360,13 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
             this._activeFolder = newFolder;
             this._resetYamlWatcher();
         }
-        this._refresh();
+        void this._refresh();
         vscode.workspace.openTextDocument(p).then(doc =>
             vscode.window.showTextDocument(doc)
         );
     }
 
-    private _getHtml(webview: vscode.Webview): string {
+    private async _getHtml(webview: vscode.Webview): Promise<string> {
         const context = vscode.env.remoteName ? escapeHtml(vscode.env.remoteName) : 'local';
         const { config, error: configError, source } = this._loadActiveConfig();
         const noWorkspace = !vscode.workspace.workspaceFolders?.length;
@@ -389,7 +390,7 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
         let body: string;
         if (source !== 'none') {
             this._yamlWasDeleted = false;
-            body = this._mainContent(config, configError, workspaceRoot);
+            body = await this._mainContent(config, configError, workspaceRoot);
         } else if (noWorkspace) {
             const terminalConfig: NearVarConfig = {
                 sources: { runbooks: [], bash: true, env: [], aws: true },
@@ -397,7 +398,7 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
                 sections: [],
                 ui: { collapsed: [] },
             };
-            body = this._noFolderCard() + this._mainContent(terminalConfig, undefined, undefined);
+            body = this._noFolderCard() + await this._mainContent(terminalConfig, undefined, undefined);
         } else {
             body = this._welcomeCard();
         }
@@ -602,7 +603,7 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
   </div>`;
     }
 
-    private _mainContent(config?: NearVarConfig, error?: string, workspaceRoot?: string): string {
+    private async _mainContent(config?: NearVarConfig, error?: string, workspaceRoot?: string): Promise<string> {
         const errorCard = error
             ? `<div class="error-card"><div class="error-title">nearvar.yaml error</div><div class="error-msg">${escapeHtml(error)}</div></div>`
             : '';
@@ -669,7 +670,7 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
             : '';
 
         const docResults = workspaceRoot && config.sources.runbooks.length > 0
-            ? readDocSources(config.sources.runbooks, workspaceRoot)
+            ? await readDocSources(config.sources.runbooks, workspaceRoot)
             : [];
         const renderBlock = (b: DocBlock): string => {
             const eLabel = escapeHtml(b.label);

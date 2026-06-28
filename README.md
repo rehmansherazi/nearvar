@@ -91,6 +91,9 @@ sources:
         - "*.draft.md"
         - "archive/*"
 
+    # Public GitHub raw file URL
+    - https://raw.githubusercontent.com/org/repo/main/oncall.md
+
   bash: true                  # read ~/.bashrc or ~/.bash_profile
   env:
     - .env                    # .env files relative to workspace
@@ -135,6 +138,21 @@ Supported fence tags: `` ```bash `` `` ```sh `` `` ```shell `` `` ```zsh ``
 
 Blocks without a heading above them are skipped. Inline backtick commands are not indexed — use fenced blocks.
 
+## Remote runbook files (GitHub)
+
+Single public GitHub raw file URLs are supported as runbook sources:
+
+```yaml
+sources:
+  runbooks:
+    - ~/local/runbooks/deploy.md
+    - https://raw.githubusercontent.com/org/repo/main/oncall.md
+```
+
+Use the **Raw** button on any GitHub file page to get the URL. Only `raw.githubusercontent.com` URLs are accepted — `github.com` tree/blob URLs are not. Private repos and folder URLs are not yet supported.
+
+Network errors, timeouts, and 404s are shown as error items in the RUNBOOKS section — the rest of the panel still loads.
+
 ## Search and filter
 
 Type in the Filter box to search across all sections:
@@ -174,10 +192,11 @@ NearVar is built with a security-first philosophy. Here is exactly what it does 
 - `~/.aws/config` — profile names and regions only
 - `~/.aws/credentials` — profile names only, never key values
 - Markdown runbook files you explicitly configure — fenced code blocks only
+- Public GitHub raw URLs you explicitly configure (`raw.githubusercontent.com` only, `https://` only) — fetched on panel load, content treated as untrusted
 
 **What NearVar never does:**
 - Never stores any data — variables, credentials, or commands are held in memory only while the panel is visible
-- Never transmits any data — no analytics, no telemetry, no network calls of any kind
+- Never transmits credentials or personal data — the only outbound network calls are explicit `https://raw.githubusercontent.com` fetches for runbook URLs you configure
 - Never executes commands — paste only, you always press Enter to run
 - Never authenticates — if a resource is inaccessible, NearVar reports it and stops
 - Never logs variable values — names may appear in debug output, values never do

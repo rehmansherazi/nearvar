@@ -6,6 +6,37 @@ Format: `## [version] — SEP-XX: Name — YYYY-MM-DD`
 
 ---
 
+## [0.3.0] — feat: GitHub raw URL support for public runbook files — 2026-06-28
+
+Public GitHub raw file URLs are now valid runbook sources in `nearvar.yaml`, alongside local paths. Add any `https://raw.githubusercontent.com/` URL as a string entry under `sources.runbooks:` — NearVar fetches and indexes it on every panel load, exactly like a local file.
+
+```yaml
+sources:
+  runbooks:
+    - ~/local/runbooks/
+    - https://raw.githubusercontent.com/org/repo/main/oncall.md
+    - https://raw.githubusercontent.com/org/repo/main/deploy.md
+```
+
+**Domain restriction:** only `raw.githubusercontent.com` is accepted. Passing any other domain (including `github.com` tree/blob URLs) shows an error item in the panel.
+
+**Protocol restriction:** only `https://` is accepted. `http://` URLs are rejected at parse time with a clear error.
+
+**Timeout:** each fetch has a 10-second timeout. Timeout, network errors, and non-200 responses each produce a non-interactive error item in the RUNBOOKS section — the rest of the panel continues to load normally.
+
+**Error items shown in panel:**
+- Network unreachable → `⚠ <url> — could not fetch (network error)`
+- 404 → `⚠ <url> — not found (404)`
+- Non-raw domain → `⚠ <url> — URL not supported — use raw.githubusercontent.com`
+- Timeout → `⚠ <url> — request timed out`
+- `http://` → `⚠ <url> — only https:// URLs are accepted`
+
+**Security:** no credentials are ever sent or stored. All fetched content passes through the existing `escapeHtml()` pipeline before webview injection. No new npm dependencies — uses Node.js built-in `https.get()`.
+
+**Scope of this release:** public repos only, single-file URLs only, no caching, no rate-limit handling. Private repos with PAT auth, folder/tree URL support, response caching, and GitLab/Bitbucket URLs are deferred to a future release.
+
+---
+
 ## [0.2.11] — feat: custom named sections + runbook grouping by source file — 2026-06-28
 
 **Named sections (`sections:` key):**
