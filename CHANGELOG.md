@@ -22,6 +22,24 @@ Smoke test: `npm run compile` — zero errors, zero warnings.
 
 ---
 
+## [0.2.6] — feat: home directory nearvar.yaml support — works across all projects — 2026-06-27
+
+NearVar now checks `~/nearvar.yaml` in addition to workspace-folder configs, so a single home-directory config works across every project without per-workspace setup.
+
+**Config resolution priority:**
+1. Home only (`~/nearvar.yaml` exists, no workspace config) → loads home config; context bar shows `local · ~`
+2. Workspace only (workspace `nearvar.yaml` exists, no home config) → loads workspace config; context bar shows `local · /path/to/workspace`
+3. Both exist → deep-merges (home as base, workspace as override): runbooks concatenated, bash/aws OR'd, env concatenated, workspace `ui` wins; context bar shows `local · ~ + workspace`
+4. Neither exists → welcome card
+
+**Path pre-resolution:** home-config runbook and env paths are resolved to absolute at load time so relative paths in a home config work correctly when merged with a workspace config.
+
+**Welcome card redesign:** "Create ~/nearvar.yaml" is now the primary button (recommended — works across all projects). "Create in workspace" is a secondary option. Workspace target hint updates live as the active editor changes.
+
+**File watching:** `~/nearvar.yaml` is now watched for create/change/delete, so the panel refreshes automatically when the home config is edited.
+
+---
+
 ## [0.2.5] — fix: multi-root workspace — scan all folders, follow active editor for create — 2026-06-27
 
 Multi-root workspace support across three areas:

@@ -20,6 +20,7 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
     static readonly viewType = 'nearvar.panel';
     private _view?: vscode.WebviewView;
     private _yamlWatcher?: vscode.FileSystemWatcher;
+    private _homeYamlWatcher?: vscode.FileSystemWatcher;
     private _docWatchers: vscode.FileSystemWatcher[] = [];
     private _activeFolder: vscode.WorkspaceFolder | undefined;
 
@@ -40,7 +41,7 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
         webviewView.webview.onDidReceiveMessage(async msg => {
             switch (msg.command) {
                 case 'createConfig':
-                    this._createNearvarYaml();
+                    this._createNearvarYaml(msg.target === 'workspace' ? 'workspace' : 'home');
                     break;
                 case 'paste': {
                     if (typeof msg.value !== 'string') { break; }
@@ -73,6 +74,13 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
             this._yamlWatcher.onDidDelete(() => this._refresh());
         }
 
+        this._homeYamlWatcher = vscode.workspace.createFileSystemWatcher(
+            new vscode.RelativePattern(vscode.Uri.file(os.homedir()), 'nearvar.yaml')
+        );
+        this._homeYamlWatcher.onDidCreate(() => this._refresh());
+        this._homeYamlWatcher.onDidChange(() => this._refresh());
+        this._homeYamlWatcher.onDidDelete(() => this._refresh());
+
         this._setupDocWatchers();
 
         const editorSub = vscode.window.onDidChangeActiveTextEditor(() => {
@@ -86,6 +94,8 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
             editorSub.dispose();
             this._yamlWatcher?.dispose();
             this._yamlWatcher = undefined;
+            this._homeYamlWatcher?.dispose();
+            this._homeYamlWatcher = undefined;
             this._docWatchers.forEach(w => w.dispose());
             this._docWatchers = [];
             this._view = undefined;
@@ -102,15 +112,15 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
     }
 
     private _setupDocWatchers(): void {
-        if (!this._hasConfig()) { return; }
-        const p = this._configPath()!;
-        const result = loadConfig(p);
-        if (!result.ok) { return; }
-        const workspaceRoot = this._activeFolder?.uri.fsPath;
-        if (!workspaceRoot) { return; }
+        const { config } = this._loadActiveConfig();
+        if (!config) { return; }
+        const wsRoot = this._activeFolder?.uri.fsPath;
 
-        for (const entry of result.config.sources.runbooks) {
-            const abs = path.isAbsolute(entry.path) ? entry.path : path.join(workspaceRoot, entry.path);
+        for (const entry of config.sources.runbooks) {
+            const abs = path.isAbsolute(entry.path)
+                ? entry.path
+                : (wsRoot ? path.join(wsRoot, entry.path) : undefined);
+            if (!abs) { continue; }
             let stat: fs.Stats | undefined;
             try { stat = fs.statSync(abs); } catch { /* not found */ }
             if (!stat) { continue; }
@@ -155,14 +165,88 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
     }
 
     private _hasConfig(): boolean {
+        if (fs.existsSync(path.join(os.homedir(), 'nearvar.yaml'))) { return true; }
         const p = this._configPath();
         if (!p) { return false; }
-        try {
-            fs.statSync(p);
-            return true;
-        } catch {
-            return false;
+        try { fs.statSync(p); return true; } catch { return false; }
+    }
+
+    private _loadActiveConfig(): {
+        config?: NearVarConfig;
+        error?: string;
+        source: 'none' | 'home' | 'workspace' | 'both';
+    } {
+        const homePath = path.join(os.homedir(), 'nearvar.yaml');
+        const wsPath = this._configPath();
+        const homeExists = fs.existsSync(homePath);
+        const wsExists = wsPath ? fs.existsSync(wsPath) : false;
+
+        if (!homeExists && !wsExists) { return { source: 'none' }; }
+
+        if (homeExists && !wsExists) {
+            const r = loadConfig(homePath);
+            if (!r.ok) { return { error: r.error, source: 'home' }; }
+            const homedir = os.homedir();
+            return {
+                config: {
+                    ...r.config,
+                    sources: {
+                        ...r.config.sources,
+                        runbooks: r.config.sources.runbooks.map(e => ({
+                            ...e,
+                            path: path.isAbsolute(e.path) ? e.path : path.join(homedir, e.path),
+                        })),
+                    },
+                },
+                source: 'home',
+            };
         }
+
+        if (!homeExists && wsExists) {
+            const r = loadConfig(wsPath!);
+            return r.ok ? { config: r.config, source: 'workspace' } : { error: r.error, source: 'workspace' };
+        }
+
+        // Both exist — deep merge: home as base, workspace as override
+        const homeR = loadConfig(homePath);
+        const wsR = loadConfig(wsPath!);
+
+        if (!homeR.ok && !wsR.ok) {
+            return { error: `Home: ${homeR.error} | Workspace: ${wsR.error}`, source: 'both' };
+        }
+        if (!homeR.ok) {
+            return wsR.ok
+                ? { config: wsR.config, error: homeR.error, source: 'both' }
+                : { error: homeR.error, source: 'both' };
+        }
+        if (!wsR.ok) {
+            return { config: homeR.config, error: wsR.error, source: 'both' };
+        }
+
+        const home = homeR.config;
+        const ws = wsR.config;
+        const homedir = os.homedir();
+
+        const homeRunbooks = home.sources.runbooks.map(e => ({
+            ...e,
+            path: path.isAbsolute(e.path) ? e.path : path.join(homedir, e.path),
+        }));
+        const homeEnv = home.sources.env.map(e =>
+            path.isAbsolute(e) ? e : path.join(homedir, e)
+        );
+
+        return {
+            config: {
+                sources: {
+                    runbooks: [...homeRunbooks, ...ws.sources.runbooks],
+                    bash: home.sources.bash || ws.sources.bash,
+                    env: [...homeEnv, ...ws.sources.env],
+                    aws: home.sources.aws || ws.sources.aws,
+                },
+                ui: ws.ui,
+            },
+            source: 'both',
+        };
     }
 
     private _getCreateFolder(): string | undefined {
@@ -208,12 +292,10 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
         }
     }
 
-    private _createNearvarYaml(): void {
-        const folderPath = this._getCreateFolder();
-        if (!folderPath) {
-            vscode.window.showErrorMessage('NearVar: No workspace folder open. Open a folder first.');
-            return;
-        }
+    private _createNearvarYaml(target: 'home' | 'workspace' = 'home'): void {
+        const folderPath = target === 'home'
+            ? os.homedir()
+            : (this._getCreateFolder() ?? os.homedir());
         const p = path.join(folderPath, 'nearvar.yaml');
         if (fs.existsSync(p)) {
             vscode.workspace.openTextDocument(p).then(doc => vscode.window.showTextDocument(doc));
@@ -275,19 +357,25 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
 
     private _getHtml(webview: vscode.Webview): string {
         const context = vscode.env.remoteName ? escapeHtml(vscode.env.remoteName) : 'local';
-        const homedir = escapeHtml(os.homedir());
-        let configError: string | undefined;
-        let config: NearVarConfig | undefined;
-        if (this._hasConfig()) {
-            const p = this._configPath()!;
-            const result = loadConfig(p);
-            if (result.ok) {
-                config = result.config;
-            } else {
-                configError = result.error;
-            }
+        const { config, error: configError, source } = this._loadActiveConfig();
+
+        let sourceLabel: string;
+        let workspaceRoot: string | undefined;
+        if (source === 'home') {
+            sourceLabel = '~';
+            workspaceRoot = os.homedir();
+        } else if (source === 'workspace') {
+            sourceLabel = escapeHtml(this._activeFolder?.uri.fsPath ?? os.homedir());
+            workspaceRoot = this._activeFolder?.uri.fsPath;
+        } else if (source === 'both') {
+            sourceLabel = '~ + workspace';
+            workspaceRoot = this._activeFolder?.uri.fsPath;
+        } else {
+            sourceLabel = escapeHtml(os.homedir());
+            workspaceRoot = undefined;
         }
-        const body = this._hasConfig() ? this._mainContent(config, configError) : this._welcomeCard();
+
+        const body = source !== 'none' ? this._mainContent(config, configError, workspaceRoot) : this._welcomeCard();
         const searchBar = config ? `<div class="search-bar"><input type="text" id="nv-search" placeholder="Filter..." autocomplete="off" spellcheck="false"></div>` : '';
 
         return `<!DOCTYPE html>
@@ -337,7 +425,7 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
 </head>
 <body>
   <div class="ctx-bar">
-    <span>${context}</span><span class="ctx-sep">·</span><span>${homedir}</span>
+    <span>${context}</span><span class="ctx-sep">·</span><span>${sourceLabel}</span>
   </div>
   ${searchBar}
   <div class="content">
@@ -345,7 +433,7 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
   </div>
   <script>
     const vscode = acquireVsCodeApi();
-    function createConfig() { vscode.postMessage({ command: 'createConfig' }); }
+    function createConfig(target) { vscode.postMessage({ command: 'createConfig', target: target || 'home' }); }
     function paste(value) { vscode.postMessage({ command: 'paste', value: value }); }
     function copy(value) { vscode.postMessage({ command: 'copy', value: value }); }
     document.querySelectorAll('.item').forEach(function(el) {
@@ -420,7 +508,7 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
     window.addEventListener('message', function(event) {
       var msg = event.data;
       if (msg.command === 'updateCreateHint') {
-        var hint = document.getElementById('nv-create-hint');
+        var hint = document.getElementById('nv-create-hint-ws');
         if (hint) { hint.textContent = 'Will be created in: ' + msg.path; }
       }
     });
@@ -430,19 +518,18 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
     }
 
     private _welcomeCard(): string {
-        const createPath = this._getCreateFolder();
-        const hint = createPath
-            ? `<p id="nv-create-hint" style="margin: 6px 0 0; font-size: 11px; color: #e5c07b;">Will be created in: ${escapeHtml(createPath)}</p>`
-            : '';
+        const wsPath = escapeHtml(this._getCreateFolder() ?? os.homedir());
         return `<div class="welcome-card">
     <h2>Welcome to NearVar</h2>
-    <p>Create a <code>nearvar.yaml</code> in your workspace to configure sources.</p>
-    <button onclick="createConfig()">Create nearvar.yaml</button>
-    ${hint}
+    <p>Create a <code>nearvar.yaml</code> to configure sources.</p>
+    <button onclick="createConfig('home')">Create ~/nearvar.yaml</button>
+    <p style="margin: 6px 0 10px; font-size: 11px; color: #e5c07b;">Recommended: create in your home folder so NearVar works across all your projects</p>
+    <button style="opacity: 0.7;" onclick="createConfig('workspace')">Create in workspace</button>
+    <p id="nv-create-hint-ws" style="margin: 4px 0 0; font-size: 11px; color: var(--vscode-descriptionForeground);">Will be created in: ${wsPath}</p>
   </div>`;
     }
 
-    private _mainContent(config?: NearVarConfig, error?: string): string {
+    private _mainContent(config?: NearVarConfig, error?: string, workspaceRoot?: string): string {
         const errorCard = error
             ? `<div class="error-card"><div class="error-title">nearvar.yaml error</div><div class="error-msg">${escapeHtml(error)}</div></div>`
             : '';
@@ -505,8 +592,6 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
             ? section('Bash Variables', bashVars.map(varItem).join(''), collapsedSet.has('bash'))
             : '';
 
-        const workspaceRoot = this._activeFolder?.uri.fsPath;
-
         const docResults = workspaceRoot && config.sources.runbooks.length > 0
             ? readDocSources(config.sources.runbooks, workspaceRoot)
             : [];
@@ -553,10 +638,9 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
             : '';
 
         const envVars: BashVar[] = [];
-        if (workspaceRoot) {
-            for (const rel of config.sources.env) {
-                envVars.push(...readEnvFile(path.join(workspaceRoot, rel), path.basename(rel)));
-            }
+        for (const rel of config.sources.env) {
+            const envPath = path.isAbsolute(rel) ? rel : (workspaceRoot ? path.join(workspaceRoot, rel) : undefined);
+            if (envPath) { envVars.push(...readEnvFile(envPath, path.basename(rel))); }
         }
         const envSection = envVars.length > 0
             ? section('.env Variables', envVars.map(envVarItem).join(''), collapsedSet.has('env'))
