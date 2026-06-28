@@ -3,7 +3,7 @@ import * as os from 'os';
 import * as fs from 'fs';
 import * as path from 'path';
 import { loadConfig, NearVarConfig } from './configReader';
-import { readBashVars, readEnvFile, BashVar } from './bashReader';
+import { readBashVars, readEnvFile, BashVar, isSensitive } from './bashReader';
 import { readDocSources, DocBlock } from './docReader';
 import { readAwsProfiles, AwsProfile } from './awsReader';
 
@@ -598,11 +598,14 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
         };
         const varItem = (v: BashVar): string => {
             const eName = escapeHtml(v.name);
+            const sensitive = isSensitive(v.name);
             const pasteVal = v.dynamic ? `$${eName}` : escapeHtml(v.value);
             const valueSpan = v.dynamic
                 ? `<span class="item-value dynamic">&#9888; dynamic</span>`
-                : `<span class="item-value">${escapeHtml(v.value)}</span>`;
-            const et = v.dynamic ? eName : escapeHtml(v.name + '|' + v.value);
+                : sensitive
+                    ? `<span class="item-value">••••••••</span>`
+                    : `<span class="item-value">${escapeHtml(v.value)}</span>`;
+            const et = (v.dynamic || sensitive) ? eName : escapeHtml(v.name + '|' + v.value);
             return `<div class="item" data-value="${pasteVal}" data-search-terms="${et}">` +
                 `<div class="item-body">` +
                 `<span class="item-label">${eName}</span>` +

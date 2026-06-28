@@ -22,6 +22,18 @@ Smoke test: `npm run compile` — zero errors, zero warnings.
 
 ---
 
+## [0.2.9] — security: auto-mask sensitive bash variable values by name pattern — 2026-06-28
+
+Bash variable values matching sensitive name patterns are now automatically masked in the panel (displayed as `••••••••`). Masking is display-only — the actual value is still available for paste/copy. Masked variable names remain searchable; masked values are excluded from the search index.
+
+Masked patterns: `TOKEN`, `SECRET`, `KEY`, `PASSWORD`/`PASSWD`/`PWD`, `CREDENTIAL`/`CRED`, `AUTH` (with exceptions), `PRIVATE`, `CERT`, `LICENSE`, `SIGNATURE`, `DSN`, `CONNECTION_STRING`/`CONN_STR`, `P12`, `PFX`, `PEM`. Database connection URLs are also masked when the name contains `URL` or `URI` alongside a database prefix (`DATABASE`, `MONGO`, `REDIS`, `MYSQL`, `POSTGRES`, `JDBC`, `ORACLE`, `ELASTICSEARCH`, etc.).
+
+`AUTH` exception: variables ending in `_TYPE`, `_METHOD`, `_SCHEME`, `_MODE`, or `_STRATEGY` are not masked even if they contain `AUTH` (e.g. `JIRA_AUTH_TYPE` is shown plain).
+
+`isSensitive(name: string): boolean` is exported from `bashReader.ts` for reuse by future readers.
+
+---
+
 ## [0.2.8] — fix: bashReader reads all bash startup files on all platforms — 2026-06-27
 
 `readBashVars()` previously read only `.bash_profile` on macOS and `.bashrc` on Linux. Now reads all three files on every platform — `.bashrc`, `.bash_profile`, `.bash_login` — skipping files that don't exist. Results are merged with deduplication: if the same variable name appears in multiple files, the later file wins. This captures exports from Homebrew users who keep their exports in `~/.bashrc` on macOS, and from Linux users who also have `~/.bash_profile`.

@@ -2,7 +2,7 @@
   "name": "nearvar",
   "displayName": "NearVar",
   "description": "NearVar — environment variables, cloud profiles, and runbook commands. Always within reach.",
-  "version": "0.2.8",
+  "version": "0.2.9",
   "publisher": "rehmansherazi",
   "license": "MIT",
   "engines": {

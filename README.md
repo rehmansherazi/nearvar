@@ -164,6 +164,7 @@ NearVar is built with a security-first philosophy. Here is exactly what it does 
 - Never authenticates — if a resource is inaccessible, NearVar reports it and stops
 - Never logs variable values — names may appear in debug output, values never do
 - Never searches `.env` variable values — `.env` values are excluded from the search index to prevent accidental exposure
+- Bash variable values matching sensitive name patterns (TOKEN, SECRET, KEY, PASSWORD, DATABASE_URL, DSN, CONNECTION_STRING and more) are automatically masked in the panel — value displayed as `••••••••`, still available to paste
 
 **How NearVar protects your data in the webview:**
 - Content Security Policy (CSP) using VS Code's `webview.cspSource` — no external scripts, no inline execution

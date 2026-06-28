@@ -4,6 +4,44 @@ import * as path from 'path';
 
 const MAX_BYTES = 512 * 1024;
 
+const SENSITIVE_PATTERNS = [
+    'PASSWORD', 'PASSWD', 'PWD',
+    'SECRET',
+    'TOKEN',
+    'KEY',
+    'CREDENTIAL', 'CRED',
+    'AUTH',
+    'PRIVATE',
+    'CERT',
+    'LICENSE',
+    'SIGNATURE',
+    'DSN',
+    'CONNECTION_STRING', 'CONN_STR',
+    'P12', 'PFX', 'PEM',
+];
+
+const SENSITIVE_URL_PREFIXES = [
+    'DB', 'DATABASE', 'MONGO', 'REDIS', 'MYSQL',
+    'POSTGRES', 'POSTGRESQL', 'JDBC', 'CONNECTION',
+    'MARIADB', 'MSSQL', 'ORACLE', 'ELASTICSEARCH',
+];
+
+const AUTH_SAFE_SUFFIXES = ['_TYPE', '_METHOD', '_SCHEME', '_MODE', '_STRATEGY'];
+
+export function isSensitive(name: string): boolean {
+    const upper = name.toUpperCase();
+    for (const p of SENSITIVE_PATTERNS) {
+        if (!upper.includes(p)) { continue; }
+        if (p === 'AUTH' && AUTH_SAFE_SUFFIXES.some(s => upper.endsWith(s))) { continue; }
+        return true;
+    }
+    if ((upper.includes('URL') || upper.includes('URI')) &&
+        SENSITIVE_URL_PREFIXES.some(p => upper.includes(p))) {
+        return true;
+    }
+    return false;
+}
+
 export interface BashVar {
     name: string;
     value: string;    // empty string when dynamic === true
