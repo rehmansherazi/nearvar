@@ -23,6 +23,7 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
     private _homeYamlWatcher?: vscode.FileSystemWatcher;
     private _docWatchers: vscode.FileSystemWatcher[] = [];
     private _activeFolder: vscode.WorkspaceFolder | undefined;
+    private _yamlWasDeleted = false;
 
     constructor(private readonly _context: vscode.ExtensionContext) {}
 
@@ -71,7 +72,7 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
             );
             this._yamlWatcher.onDidCreate(() => this._refresh());
             this._yamlWatcher.onDidChange(() => this._refresh());
-            this._yamlWatcher.onDidDelete(() => this._refresh());
+            this._yamlWatcher.onDidDelete(() => { this._yamlWasDeleted = true; this._refresh(); });
         }
 
         this._homeYamlWatcher = vscode.workspace.createFileSystemWatcher(
@@ -79,7 +80,7 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
         );
         this._homeYamlWatcher.onDidCreate(() => this._refresh());
         this._homeYamlWatcher.onDidChange(() => this._refresh());
-        this._homeYamlWatcher.onDidDelete(() => this._refresh());
+        this._homeYamlWatcher.onDidDelete(() => { this._yamlWasDeleted = true; this._refresh(); });
 
         this._setupDocWatchers();
 
@@ -90,8 +91,15 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
             }
         });
 
+        const workspaceFolderSub = vscode.workspace.onDidChangeWorkspaceFolders(async () => {
+            this._activeFolder = await this._resolveFolder();
+            this._resetYamlWatcher();
+            this._refresh();
+        });
+
         webviewView.onDidDispose(() => {
             editorSub.dispose();
+            workspaceFolderSub.dispose();
             this._yamlWatcher?.dispose();
             this._yamlWatcher = undefined;
             this._homeYamlWatcher?.dispose();
@@ -267,7 +275,7 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
             );
             this._yamlWatcher.onDidCreate(() => this._refresh());
             this._yamlWatcher.onDidChange(() => this._refresh());
-            this._yamlWatcher.onDidDelete(() => this._refresh());
+            this._yamlWatcher.onDidDelete(() => { this._yamlWasDeleted = true; this._refresh(); });
         }
     }
 
@@ -358,6 +366,7 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
     private _getHtml(webview: vscode.Webview): string {
         const context = vscode.env.remoteName ? escapeHtml(vscode.env.remoteName) : 'local';
         const { config, error: configError, source } = this._loadActiveConfig();
+        const noWorkspace = !vscode.workspace.workspaceFolders?.length;
 
         let sourceLabel: string;
         let workspaceRoot: string | undefined;
@@ -371,11 +380,23 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
             sourceLabel = '~ + workspace';
             workspaceRoot = this._activeFolder?.uri.fsPath;
         } else {
-            sourceLabel = escapeHtml(os.homedir());
+            sourceLabel = noWorkspace ? 'no folder' : escapeHtml(this._activeFolder?.uri.fsPath ?? os.homedir());
             workspaceRoot = undefined;
         }
 
-        const body = source !== 'none' ? this._mainContent(config, configError, workspaceRoot) : this._welcomeCard();
+        let body: string;
+        if (source !== 'none') {
+            this._yamlWasDeleted = false;
+            body = this._mainContent(config, configError, workspaceRoot);
+        } else if (noWorkspace) {
+            const terminalConfig: NearVarConfig = {
+                sources: { runbooks: [], bash: true, env: [], aws: true },
+                ui: { collapsed: [] },
+            };
+            body = this._noFolderCard() + this._mainContent(terminalConfig, undefined, undefined);
+        } else {
+            body = this._welcomeCard();
+        }
         const searchBar = config ? `<div class="search-bar"><input type="text" id="nv-search" placeholder="Filter..." autocomplete="off" spellcheck="false"></div>` : '';
 
         return `<!DOCTYPE html>
@@ -517,10 +538,28 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
 </html>`;
     }
 
+    private _noFolderCard(): string {
+        const deletedNote = this._yamlWasDeleted
+            ? `<p style="margin: 0 0 8px; font-size: 12px; font-weight: 600; color: var(--vscode-editorWarning-foreground, #e5c07b);">nearvar.yaml was moved or deleted.</p>
+    <p style="margin: 0 0 10px; font-size: 11px; color: var(--vscode-descriptionForeground);">Create a new one or restore the file to continue.</p>`
+            : '';
+        return `<div class="welcome-card" style="margin-bottom: 8px;">
+    ${deletedNote}<h2>No folder open</h2>
+    <p>NearVar can still surface your environment.</p>
+    <p style="margin: 0; font-size: 11px; color: var(--vscode-descriptionForeground);">Bash variables and AWS profiles are shown below. Open a folder or add <code>~/nearvar.yaml</code> to enable runbook indexing and .env files.</p>
+  </div>`;
+    }
+
     private _welcomeCard(): string {
         const wsPath = escapeHtml(this._getCreateFolder() ?? os.homedir());
+        const deletedBanner = this._yamlWasDeleted
+            ? `<div style="margin-bottom: 12px; padding: 8px 10px; border: 1px solid var(--vscode-inputValidation-warningBorder, #e5c07b); border-radius: 3px;">
+      <p style="margin: 0 0 4px; font-size: 12px; font-weight: 600;">nearvar.yaml was moved or deleted.</p>
+      <p style="margin: 0; font-size: 11px; color: var(--vscode-descriptionForeground);">Create a new one or restore the file to continue.</p>
+    </div>`
+            : '';
         return `<div class="welcome-card">
-    <h2>Welcome to NearVar</h2>
+    ${deletedBanner}<h2>Welcome to NearVar</h2>
     <p>Create a <code>nearvar.yaml</code> to configure sources.</p>
     <button onclick="createConfig('home')">Create ~/nearvar.yaml</button>
     <p style="margin: 6px 0 10px; font-size: 11px; color: #e5c07b;">Recommended: create in your home folder so NearVar works across all your projects</p>

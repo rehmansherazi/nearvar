@@ -22,6 +22,28 @@ Smoke test: `npm run compile` — zero errors, zero warnings.
 
 ---
 
+## [0.2.7] — feat: multi-root resilience + home directory support (full) — 2026-06-27
+
+Completes multi-root workspace resilience and home directory support across six fixes:
+
+**FIX 1 — Scan all workspace folders:** `_resolveFolder()` checks every `workspaceFolders` entry for `nearvar.yaml`. Exactly one match → silent selection. Multiple matches → quick-pick. `_loadActiveConfig()` checks `~/nearvar.yaml` in addition to workspace config; merges both when both exist (home as base, workspace as override — runbooks/env concatenated, bash/aws OR'd).
+
+**FIX 2 — Create follows active editor:** "Create nearvar.yaml" targets the workspace folder of the currently open file (`vscode.window.activeTextEditor`). Falls back to `workspaceFolders[0]`, then `os.homedir()`. Opens existing file instead of overwriting.
+
+**FIX 3 — Path hint on welcome card:** Two-button welcome card — "Create ~/nearvar.yaml" (primary, yellow recommended hint) + "Create in workspace" (secondary, live path hint). Workspace path hint updates in real time on `onDidChangeActiveTextEditor` via postMessage.
+
+**FIX 4 — No workspace folder open:** When `workspaceFolders` is empty/undefined and no `~/nearvar.yaml` exists, NearVar shows a "No folder open" card and automatically loads bash variables and AWS profiles below it — no config needed. Context bar shows `local · no folder`.
+
+**FIX 5a — Workspace folder changes at runtime:** `onDidChangeWorkspaceFolders` listener re-runs folder scan, updates yaml watcher, and refreshes panel. No window reload required.
+
+**FIX 5b — yaml deleted at runtime:** When watched `nearvar.yaml` (workspace or home) is deleted, panel shows a `nearvar.yaml was moved or deleted` banner at the top of the welcome card. Banner clears automatically when a config is found again.
+
+**FIX 5c — All folders removed at runtime:** Falls through FIX 5a → FIX 4 terminal-only state automatically.
+
+**FIX 6 — Context bar source labels:** `local · ~` (home only), `local · /path` (workspace only), `local · ~ + workspace` (merged), `local · no folder` (no workspace and no home yaml).
+
+---
+
 ## [0.2.6] — feat: home directory nearvar.yaml support — works across all projects — 2026-06-27
 
 NearVar now checks `~/nearvar.yaml` in addition to workspace-folder configs, so a single home-directory config works across every project without per-workspace setup.

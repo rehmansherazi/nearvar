@@ -46,14 +46,20 @@ NearVar is a VS Code sidebar extension that surfaces your shell environment, AWS
 
 ## Getting started
 
-1. Install NearVar from the VS Code Marketplace
-2. Open the panel: `Ctrl+Alt+E` (Linux/Windows) or `Cmd+Alt+E` (macOS)
-3. Click **Create ~/nearvar.yaml** — a single config in your home folder works across every project
-4. Edit `~/nearvar.yaml` to point at your runbook files or folders
+The simplest setup — works across every project forever:
 
-> **Tip:** Creating `nearvar.yaml` in your home directory (`~/nearvar.yaml`) is the recommended setup — NearVar picks it up automatically in every workspace, no per-project configuration needed.
->
-> If you prefer per-project configs, click **Create in workspace** instead. Both can coexist: NearVar deep-merges them, with the workspace config taking precedence.
+1. Open your home folder in VS Code:
+   **File → Add Folder to Workspace → select your home folder (~)**
+
+2. Click the NearVar icon in the sidebar
+
+3. Click **Create ~/nearvar.yaml** — file created at `~/nearvar.yaml`
+
+4. Edit `~/nearvar.yaml` to point at your runbooks, .env files, and cloud profiles
+
+NearVar will now work in every workspace you open, with no per-project setup required. `~/nearvar.yaml` lives alongside `~/.bashrc` and `~/.aws/config` — manage it the same way.
+
+> **No workspace folder open?** NearVar still shows your bash variables and AWS profiles automatically — no config needed for those.
 
 ## Example configuration
 
