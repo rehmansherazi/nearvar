@@ -35,11 +35,12 @@ NearVar is a VS Code sidebar extension that surfaces your shell environment, AWS
 
 ## Features
 
-- **Runbook commands** — indexes fenced bash blocks from markdown files you configure. Supports `` ```bash ``, `` ```sh ``, `` ```shell ``, `` ```zsh ``
+- **Runbook commands** — indexes fenced bash blocks from markdown files you configure. Supports `` ```bash ``, `` ```sh ``, `` ```shell ``, `` ```zsh ``. When multiple markdown files are indexed, commands are grouped under a collapsible per-file sub-header
 - **Bash variables** — reads `~/.bashrc` (Linux) or `~/.bash_profile` (macOS)
 - **Environment files** — reads `.env` files in your workspace
 - **AWS profiles** — reads `~/.aws/config` and `~/.aws/credentials`
 - **Editor CodeLens** — click `▶ NearVar:` above any fenced block in a configured runbook to paste directly from the editor
+- **Custom named sections** — define any number of named sections in `nearvar.yaml` with your own labels and commands, each independently collapsible
 - **Search/filter** — filter across all sections by name or value
 - **Collapsible sections** — collapse sections you don't need right now, configurable per section in `nearvar.yaml`
 - **Paste without executing** — text lands in the terminal prompt, you press Enter to run. Never executes automatically.
@@ -95,9 +96,26 @@ sources:
     - .env                    # .env files relative to workspace
   aws: true                   # read ~/.aws/config profiles
 
+# Custom named sections — appear below standard source sections
+sections:
+  - name: Deploy
+    commands:
+      - label: Deploy to staging
+        value: ./deploy.sh staging
+      - label: Deploy to production
+        value: ./deploy.sh production
+  - name: Database
+    collapsed: true           # collapsed by default
+    commands:
+      - label: Connect to prod DB
+        value: psql $DATABASE_URL
+      - label: Run migrations
+        value: ./manage.py migrate
+
 ui:
   collapsed:                  # sections collapsed by default
     - aws                     # expand by clicking the header
+    # named section names also accepted here
 ```
 
 ## Runbook format
@@ -138,7 +156,7 @@ ui:
     - custom
 ```
 
-Valid section names: `runbooks`, `bash`, `env`, `aws`, `custom`
+Built-in section names: `runbooks`, `bash`, `env`, `aws`, `custom`. Named sections defined under `sections:` can also be added here using their exact `name:` value.
 
 ## What NearVar is not
 

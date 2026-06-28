@@ -252,6 +252,7 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
                     aws: home.sources.aws || ws.sources.aws,
                 },
                 custom: [...home.custom, ...ws.custom],
+                sections: [...home.sections, ...ws.sections],
                 ui: ws.ui,
             },
             source: 'both',
@@ -393,6 +394,7 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
             const terminalConfig: NearVarConfig = {
                 sources: { runbooks: [], bash: true, env: [], aws: true },
                 custom: [],
+                sections: [],
                 ui: { collapsed: [] },
             };
             body = this._noFolderCard() + this._mainContent(terminalConfig, undefined, undefined);
@@ -439,6 +441,12 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
   .block-source { font-weight: normal; color: var(--vscode-descriptionForeground); font-size: 10px; }
   .block-lines { padding-left: 16px; }
   .source-error { font-size: 11px; color: var(--vscode-editorWarning-foreground, #cca700); padding: 3px 4px; }
+  .file-group { margin: 4px 0 2px; }
+  .file-group-header { display: flex; align-items: center; padding: 3px 4px; border-radius: 3px; cursor: pointer; gap: 4px; }
+  .file-group-header:hover { background: var(--vscode-list-hoverBackground); }
+  .file-group-arrow { flex-shrink: 0; font-size: 9px; width: 10px; text-align: center; color: var(--vscode-descriptionForeground); }
+  .file-group-name { font-size: 10px; font-weight: 600; color: var(--vscode-descriptionForeground); }
+  .file-group-items { padding-left: 8px; }
   .search-bar { padding: 5px 8px; border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border); }
   #nv-search { width: 100%; box-sizing: border-box; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border, transparent); padding: 4px 6px; font-family: var(--vscode-font-family); font-size: 12px; border-radius: 2px; outline: none; }
   #nv-search:focus { border-color: var(--vscode-focusBorder); }
@@ -479,6 +487,14 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
         arrow.textContent = lines.hidden ? '▶' : '▼';
       });
     });
+    document.querySelectorAll('.file-group-header').forEach(function(h) {
+      h.addEventListener('click', function() {
+        var items = this.nextElementSibling;
+        var arrow = this.querySelector('.file-group-arrow');
+        items.hidden = !items.hidden;
+        arrow.textContent = items.hidden ? '▶' : '▼';
+      });
+    });
     document.querySelectorAll('.section-label').forEach(function(label) {
       label.addEventListener('click', function() {
         var items = this.nextElementSibling;
@@ -497,7 +513,7 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
         var trimmed = val.trim();
         if (_collapseSnapshot === null && trimmed !== '') {
           _collapseSnapshot = new Map();
-          document.querySelectorAll('.section-items').forEach(function(si) {
+          document.querySelectorAll('.section-items, .file-group-items').forEach(function(si) {
             _collapseSnapshot.set(si, si.hidden);
             si.hidden = false;
           });
@@ -512,6 +528,22 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
         document.querySelectorAll('.section-items > .block-group').forEach(function(el) {
           el.hidden = !isEmpty && !(el.dataset.searchTerms || '').toLowerCase().includes(q);
         });
+        document.querySelectorAll('.file-group-items > .item').forEach(function(el) {
+          el.hidden = !isEmpty && !(el.dataset.searchTerms || '').toLowerCase().includes(q);
+        });
+        document.querySelectorAll('.file-group-items > .block-group').forEach(function(el) {
+          el.hidden = !isEmpty && !(el.dataset.searchTerms || '').toLowerCase().includes(q);
+        });
+        document.querySelectorAll('.section-items > .file-group').forEach(function(el) {
+          if (isEmpty) {
+            el.hidden = false;
+            var fgi = el.querySelector('.file-group-items');
+            if (fgi && _collapseSnapshot !== null) { fgi.hidden = _collapseSnapshot.get(fgi) || false; }
+          } else {
+            var hasVisible = Array.from(el.querySelectorAll('.file-group-items > .item, .file-group-items > .block-group')).some(function(c) { return !c.hidden; });
+            el.hidden = !hasVisible;
+          }
+        });
         document.querySelectorAll('.section-wrapper').forEach(function(wrapper) {
           var sectionItems = wrapper.querySelector('.section-items');
           if (!sectionItems) { return; }
@@ -522,7 +554,7 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
             wrapper.hidden = false;
             return;
           }
-          var hasVisible = Array.from(sectionItems.querySelectorAll(':scope > .item, :scope > .block-group')).some(function(c) { return !c.hidden; });
+          var hasVisible = Array.from(sectionItems.querySelectorAll(':scope > .item, :scope > .block-group, :scope > .file-group')).some(function(c) { return !c.hidden; });
           wrapper.hidden = !hasVisible;
         });
         if (isEmpty) { _collapseSnapshot = null; }
@@ -641,14 +673,13 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
             : [];
         const renderBlock = (b: DocBlock): string => {
             const eLabel = escapeHtml(b.label);
-            const eRel   = escapeHtml(b.relPath);
             const eAbs   = escapeHtml(b.absPath);
             if (b.lines.length === 1) {
                 const ev = escapeHtml(b.lines[0]);
                 const et = escapeHtml(b.label + '|' + b.lines[0]);
                 return `<div class="item" data-value="${ev}" data-search-terms="${et}" title="${eAbs}">` +
                     `<div class="item-body">` +
-                    `<span class="item-label">${eLabel}<span class="block-source"> · ${eRel}</span></span>` +
+                    `<span class="item-label">${eLabel}</span>` +
                     `<span class="item-value">${ev}</span>` +
                     `</div>` +
                     `<button class="copy-btn" data-value="${ev}">Copy</button>` +
@@ -666,19 +697,54 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
                 `<div class="block-header" title="${eAbs}">` +
                 `<span class="block-arrow">▶</span>` +
                 `<div class="item-body">` +
-                `<span class="item-label">${eLabel}<span class="block-source"> · ${eRel}</span></span>` +
+                `<span class="item-label">${eLabel}</span>` +
                 `<span class="item-value">${b.lines.length} commands</span>` +
                 `</div></div>` +
                 `<div class="block-lines" hidden>${children}</div>` +
                 `</div>`;
         };
-        const docItems = docResults.flatMap(sr =>
-            sr.error
-                ? [`<div class="source-error">&#9888; ${escapeHtml(sr.sourcePath)} — ${escapeHtml(sr.error)}</div>`]
-                : sr.blocks.map(renderBlock)
-        );
-        const runbooksSection = docItems.length > 0
-            ? section('Runbooks', docItems.join(''), collapsedSet.has('runbooks'))
+
+        const uniqueFiles = [...new Set(
+            docResults.filter(sr => !sr.error).flatMap(sr => sr.blocks.map(b => b.absPath))
+        )];
+        const groupByFile = uniqueFiles.length > 1;
+        let runbooksContent: string;
+        if (!groupByFile) {
+            runbooksContent = docResults.flatMap(sr =>
+                sr.error
+                    ? [`<div class="source-error">&#9888; ${escapeHtml(sr.sourcePath)} — ${escapeHtml(sr.error)}</div>`]
+                    : sr.blocks.map(renderBlock)
+            ).join('');
+        } else {
+            const errorItems = docResults
+                .filter(sr => sr.error)
+                .map(sr => `<div class="source-error">&#9888; ${escapeHtml(sr.sourcePath)} — ${escapeHtml(sr.error)}</div>`);
+            const fileMap = new Map<string, DocBlock[]>();
+            for (const sr of docResults) {
+                if (sr.error) { continue; }
+                for (const b of sr.blocks) {
+                    const arr = fileMap.get(b.absPath) ?? [];
+                    arr.push(b);
+                    fileMap.set(b.absPath, arr);
+                }
+            }
+            const fileGroups = [...fileMap.entries()].map(([absPath, blocks]) => {
+                const eFileName = escapeHtml(path.basename(absPath));
+                const eAbsPath  = escapeHtml(absPath);
+                const items     = blocks.map(renderBlock).join('');
+                const allTerms  = escapeHtml(blocks.flatMap(b => [b.label, ...b.lines]).join('|'));
+                return `<div class="file-group" data-search-terms="${allTerms}">` +
+                    `<div class="file-group-header" title="${eAbsPath}">` +
+                    `<span class="file-group-arrow">▼</span>` +
+                    `<span class="file-group-name">${eFileName}</span>` +
+                    `</div>` +
+                    `<div class="file-group-items">${items}</div>` +
+                    `</div>`;
+            });
+            runbooksContent = [...errorItems, ...fileGroups].join('');
+        }
+        const runbooksSection = runbooksContent
+            ? section('Runbooks', runbooksContent, collapsedSet.has('runbooks'))
             : '';
 
         const envVars: BashVar[] = [];
@@ -715,13 +781,22 @@ export class NearVarPanel implements vscode.WebviewViewProvider {
             ? section('Custom', customItems, collapsedSet.has('custom'))
             : '';
 
+        const namedSections = (config.sections ?? []).map(sec => {
+            const cmdItems = sec.commands.map(c => item(c.label, c.value)).join('');
+            if (!cmdItems) { return ''; }
+            const isCollapsed = collapsedSet.has(sec.name) || sec.collapsed === true;
+            return section(sec.name, cmdItems, isCollapsed);
+        }).join('');
+
+        const hasTailSections = namedSections || customSection;
         return [
             runbooksSection,
             '<div class="divider"></div>',
             bashSection,
             envSection,
             awsSection,
-            customSection ? '<div class="divider"></div>' : '',
+            hasTailSections ? '<div class="divider"></div>' : '',
+            namedSections,
             customSection,
         ].join('');
     }

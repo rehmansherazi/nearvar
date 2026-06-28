@@ -6,6 +6,40 @@ Format: `## [version] — SEP-XX: Name — YYYY-MM-DD`
 
 ---
 
+## [0.2.11] — feat: custom named sections + runbook grouping by source file — 2026-06-28
+
+**Named sections (`sections:` key):**
+
+`nearvar.yaml` now supports a top-level `sections:` key for defining fully custom collapsible sections alongside the standard source sections. Schema: array of `{ name, collapsed?, commands: [{label, value}] }`.
+
+Each section is independently collapsible in the panel. Collapse state is controlled by the per-section `collapsed: true` field in the YAML, or by adding the section name to `ui.collapsed`. Empty sections (no valid commands) are hidden automatically.
+
+Backward compatibility: the existing `custom:` flat key still works and renders as a "Custom" section.
+
+Example:
+```yaml
+sections:
+  - name: Deploy
+    commands:
+      - label: Deploy to staging
+        value: ./deploy.sh staging
+  - name: Database
+    collapsed: true
+    commands:
+      - label: Connect to prod DB
+        value: psql $DATABASE_URL
+```
+
+**Runbook grouping by source file:**
+
+When `sources.runbooks` resolves blocks from more than one markdown file, the Runbooks section now groups items under a collapsible sub-header per file. The sub-header shows the filename; hovering shows the full absolute path. Click the sub-header to collapse/expand that file's commands. When only a single markdown file is in scope, the flat list is shown as before (no grouping header).
+
+The `· filename` suffix previously shown on each runbook item label has been removed — that information is now conveyed by the file group header.
+
+Search/filter continues to work across all items regardless of grouping. Typing a query forces all file groups to expand; clearing restores the pre-filter state.
+
+---
+
 ## [0.0.1] — SEP-01: Panel Scaffold — 2026-06-17
 
 Implemented `resolveWebviewView` in `src/panel.ts`. Delivers: CSP with `webview.cspSource`, `escapeHtml` helper, context bar (execution environment + home directory), welcome card with "Create nearvar.yaml" button, `acquireVsCodeApi()` wired. Panel opens on Ctrl+Alt+E / Cmd+Alt+E.

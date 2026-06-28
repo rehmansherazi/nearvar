@@ -14,6 +14,17 @@ export interface CustomEntry {
     value: string;
 }
 
+export interface SectionCommand {
+    label: string;
+    value: string;
+}
+
+export interface SectionConfig {
+    name: string;
+    collapsed?: boolean;
+    commands: SectionCommand[];
+}
+
 export interface NearVarConfig {
     sources: {
         runbooks: RunbookEntry[];
@@ -22,6 +33,7 @@ export interface NearVarConfig {
         aws: boolean;
     };
     custom: CustomEntry[];
+    sections: SectionConfig[];
     ui: {
         collapsed: string[];
     };
@@ -82,6 +94,7 @@ export function loadConfig(configPath: string): ConfigResult {
             aws: s.aws === true,
         },
         custom: toCustomArray(obj.custom),
+        sections: toSectionArray(obj.sections),
         ui: { collapsed },
     };
 
@@ -127,4 +140,27 @@ function toCustomArray(val: unknown): CustomEntry[] {
 function toStringArray(val: unknown): string[] {
     if (!Array.isArray(val)) { return []; }
     return val.filter((x): x is string => typeof x === 'string');
+}
+
+function toSectionArray(val: unknown): SectionConfig[] {
+    if (!Array.isArray(val)) { return []; }
+    return val.flatMap((entry): SectionConfig[] => {
+        if (entry && typeof entry === 'object' && !Array.isArray(entry)) {
+            const e = entry as Record<string, unknown>;
+            if (typeof e['name'] !== 'string' || !e['name'].trim()) { return []; }
+            const commands: SectionCommand[] = [];
+            if (Array.isArray(e['commands'])) {
+                for (const cmd of e['commands']) {
+                    if (cmd && typeof cmd === 'object' && !Array.isArray(cmd)) {
+                        const c = cmd as Record<string, unknown>;
+                        if (typeof c['label'] === 'string' && typeof c['value'] === 'string') {
+                            commands.push({ label: c['label'], value: c['value'] });
+                        }
+                    }
+                }
+            }
+            return [{ name: e['name'] as string, collapsed: e['collapsed'] === true, commands }];
+        }
+        return [];
+    });
 }
