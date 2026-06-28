@@ -53,10 +53,16 @@ function readLines(filePath: string): string[] | null {
 }
 
 export function readBashVars(): BashVar[] {
-    const file = process.platform === 'darwin' ? '.bash_profile' : '.bashrc';
-    const lines = readLines(path.join(os.homedir(), file));
-    if (!lines) { return []; }
-    return parseLines(lines, EXPORT_RE, 'bash', file);
+    const candidates = ['.bashrc', '.bash_profile', '.bash_login'];
+    const seen = new Map<string, BashVar>();
+    for (const file of candidates) {
+        const lines = readLines(path.join(os.homedir(), file));
+        if (!lines) { continue; }
+        for (const v of parseLines(lines, EXPORT_RE, 'bash', file)) {
+            seen.set(v.name, v); // later file wins on conflict
+        }
+    }
+    return Array.from(seen.values());
 }
 
 export function readEnvFile(absPath: string, displayName: string): BashVar[] {

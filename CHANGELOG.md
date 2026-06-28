@@ -22,6 +22,12 @@ Smoke test: `npm run compile` — zero errors, zero warnings.
 
 ---
 
+## [0.2.8] — fix: bashReader reads all bash startup files on all platforms — 2026-06-27
+
+`readBashVars()` previously read only `.bash_profile` on macOS and `.bashrc` on Linux. Now reads all three files on every platform — `.bashrc`, `.bash_profile`, `.bash_login` — skipping files that don't exist. Results are merged with deduplication: if the same variable name appears in multiple files, the later file wins. This captures exports from Homebrew users who keep their exports in `~/.bashrc` on macOS, and from Linux users who also have `~/.bash_profile`.
+
+---
+
 ## [0.2.7] — feat: multi-root resilience + home directory support (full) — 2026-06-27
 
 Completes multi-root workspace resilience and home directory support across six fixes:
