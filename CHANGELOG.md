@@ -4,6 +4,12 @@ All changes to NearVar are documented here.
 
 ---
 
+## [0.3.1] — fix: boundary-aware PASS masking for LDAP_PASS, GH_PASS style variables — 2026-06-29
+
+Variables ending in `_PASS` (e.g. `LDAP_PASS`, `GH_PASS`, `DB_PASS`) and variables beginning with `PASS_` (e.g. `PASS_PHRASE`) are now masked by `isSensitive()`. The pattern uses a boundary check — `(^|_)PASS(_|$)` — so words that merely contain the substring PASS (`BYPASS`, `COMPASS`, `PASSPORT`, `PASSPHRASE`) are not affected.
+
+---
+
 ## [0.3.0] — feat: GitHub raw URL support for public runbook files — 2026-06-28
 
 Public GitHub raw file URLs are now valid runbook sources in `nearvar.yaml`, alongside local paths. Add any `https://raw.githubusercontent.com/` URL as a string entry under `sources.runbooks:` — NearVar fetches and indexes it on every panel load, exactly like a local file.

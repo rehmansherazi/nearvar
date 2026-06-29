@@ -20,6 +20,10 @@ const SENSITIVE_PATTERNS = [
     'P12', 'PFX', 'PEM',
 ];
 
+// PASS matched only when preceded by _ or start-of-name, and followed by _ or end-of-name.
+// Avoids false matches on BYPASS, COMPASS (contain PASS mid-word), PASSPHRASE, PASSPORT (no boundary after).
+const PASS_RE = /(^|_)PASS(_|$)/;
+
 const SENSITIVE_URL_PREFIXES = [
     'DB', 'DATABASE', 'MONGO', 'REDIS', 'MYSQL',
     'POSTGRES', 'POSTGRESQL', 'JDBC', 'CONNECTION',
@@ -35,6 +39,7 @@ export function isSensitive(name: string): boolean {
         if (p === 'AUTH' && AUTH_SAFE_SUFFIXES.some(s => upper.endsWith(s))) { continue; }
         return true;
     }
+    if (PASS_RE.test(upper)) { return true; }
     if ((upper.includes('URL') || upper.includes('URI')) &&
         SENSITIVE_URL_PREFIXES.some(p => upper.includes(p))) {
         return true;

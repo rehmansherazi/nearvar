@@ -2452,6 +2452,8 @@ function loadConfig(configPath) {
       env: toStringArray(s.env),
       aws: s.aws === true
     },
+    custom: toCustomArray(obj.custom),
+    sections: toSectionArray(obj.sections),
     ui: { collapsed }
   };
   return { ok: true, config };
@@ -2480,11 +2482,51 @@ function toRunbookArray(val) {
     return [];
   });
 }
+function toCustomArray(val) {
+  if (!Array.isArray(val)) {
+    return [];
+  }
+  return val.flatMap((entry) => {
+    if (entry && typeof entry === "object" && !Array.isArray(entry)) {
+      const e = entry;
+      if (typeof e["label"] === "string" && typeof e["value"] === "string") {
+        return [{ label: e["label"], value: e["value"] }];
+      }
+    }
+    return [];
+  });
+}
 function toStringArray(val) {
   if (!Array.isArray(val)) {
     return [];
   }
   return val.filter((x) => typeof x === "string");
+}
+function toSectionArray(val) {
+  if (!Array.isArray(val)) {
+    return [];
+  }
+  return val.flatMap((entry) => {
+    if (entry && typeof entry === "object" && !Array.isArray(entry)) {
+      const e = entry;
+      if (typeof e["name"] !== "string" || !e["name"].trim()) {
+        return [];
+      }
+      const commands2 = [];
+      if (Array.isArray(e["commands"])) {
+        for (const cmd of e["commands"]) {
+          if (cmd && typeof cmd === "object" && !Array.isArray(cmd)) {
+            const c = cmd;
+            if (typeof c["label"] === "string" && typeof c["value"] === "string") {
+              commands2.push({ label: c["label"], value: c["value"] });
+            }
+          }
+        }
+      }
+      return [{ name: e["name"], collapsed: e["collapsed"] === true, commands: commands2 }];
+    }
+    return [];
+  });
 }
 
 // src/bashReader.ts
@@ -2492,6 +2534,63 @@ var fs2 = __toESM(require("fs"));
 var os = __toESM(require("os"));
 var path = __toESM(require("path"));
 var MAX_BYTES2 = 512 * 1024;
+var SENSITIVE_PATTERNS = [
+  "PASSWORD",
+  "PASSWD",
+  "PWD",
+  "SECRET",
+  "TOKEN",
+  "KEY",
+  "CREDENTIAL",
+  "CRED",
+  "AUTH",
+  "PRIVATE",
+  "CERT",
+  "LICENSE",
+  "SIGNATURE",
+  "DSN",
+  "CONNECTION_STRING",
+  "CONN_STR",
+  "P12",
+  "PFX",
+  "PEM"
+];
+var PASS_RE = /(^|_)PASS(_|$)/;
+var SENSITIVE_URL_PREFIXES = [
+  "DB",
+  "DATABASE",
+  "MONGO",
+  "REDIS",
+  "MYSQL",
+  "POSTGRES",
+  "POSTGRESQL",
+  "JDBC",
+  "CONNECTION",
+  "MARIADB",
+  "MSSQL",
+  "ORACLE",
+  "ELASTICSEARCH"
+];
+var AUTH_SAFE_SUFFIXES = ["_TYPE", "_METHOD", "_SCHEME", "_MODE", "_STRATEGY"];
+function isSensitive(name) {
+  const upper = name.toUpperCase();
+  for (const p of SENSITIVE_PATTERNS) {
+    if (!upper.includes(p)) {
+      continue;
+    }
+    if (p === "AUTH" && AUTH_SAFE_SUFFIXES.some((s) => upper.endsWith(s))) {
+      continue;
+    }
+    return true;
+  }
+  if (PASS_RE.test(upper)) {
+    return true;
+  }
+  if ((upper.includes("URL") || upper.includes("URI")) && SENSITIVE_URL_PREFIXES.some((p) => upper.includes(p))) {
+    return true;
+  }
+  return false;
+}
 var EXPORT_RE = /^export\s+([A-Za-z_][A-Za-z0-9_]*)=(.*)$/;
 var ENV_RE = /^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/;
 var QUOTE_RE = /^(['"])(.*)\1$/s;
@@ -2530,12 +2629,18 @@ function readLines(filePath) {
   }
 }
 function readBashVars() {
-  const file = process.platform === "darwin" ? ".bash_profile" : ".bashrc";
-  const lines = readLines(path.join(os.homedir(), file));
-  if (!lines) {
-    return [];
+  const candidates = [".bashrc", ".bash_profile", ".bash_login"];
+  const seen = /* @__PURE__ */ new Map();
+  for (const file of candidates) {
+    const lines = readLines(path.join(os.homedir(), file));
+    if (!lines) {
+      continue;
+    }
+    for (const v of parseLines(lines, EXPORT_RE, "bash", file)) {
+      seen.set(v.name, v);
+    }
   }
-  return parseLines(lines, EXPORT_RE, "bash", file);
+  return Array.from(seen.values());
 }
 function readEnvFile(absPath, displayName) {
   const lines = readLines(absPath);
@@ -2547,6 +2652,7 @@ function readEnvFile(absPath, displayName) {
 
 // src/docReader.ts
 var fs3 = __toESM(require("fs"));
+var https = __toESM(require("https"));
 var path3 = __toESM(require("path"));
 
 // node_modules/balanced-match/dist/esm/index.js
@@ -4356,6 +4462,73 @@ var MAX_BYTES3 = 512 * 1024;
 var FENCE_OPEN = /^```(bash|sh|shell|zsh)\s*$/;
 var FENCE_CLOSE = /^```\s*$/;
 var HEADING_RE = /^#{1,6}\s+(.+)$/;
+function isRemoteUrl(source) {
+  return source.startsWith("https://");
+}
+function fetchRemoteRunbook(urlStr) {
+  return new Promise((resolve, reject) => {
+    let parsedUrl;
+    try {
+      parsedUrl = new URL(urlStr);
+    } catch {
+      reject(new Error("Invalid URL"));
+      return;
+    }
+    if (parsedUrl.protocol !== "https:") {
+      reject(new Error("Only https:// URLs are accepted"));
+      return;
+    }
+    if (parsedUrl.hostname !== "raw.githubusercontent.com") {
+      reject(new Error("Only raw.githubusercontent.com URLs are supported"));
+      return;
+    }
+    let settled = false;
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      req.destroy();
+    }, 1e4);
+    const req = https.get(urlStr, (res) => {
+      clearTimeout(timer);
+      if (settled) {
+        return;
+      }
+      if (res.statusCode !== 200) {
+        settled = true;
+        res.resume();
+        reject(new Error(`HTTP ${res.statusCode}`));
+        return;
+      }
+      let data = "";
+      let size = 0;
+      res.on("data", (chunk) => {
+        size += chunk.length;
+        if (size > MAX_BYTES3) {
+          req.destroy();
+          if (!settled) {
+            settled = true;
+            reject(new Error("Response exceeds 512 KB"));
+          }
+          return;
+        }
+        data += chunk.toString("utf8");
+      });
+      res.on("end", () => {
+        if (!settled) {
+          settled = true;
+          resolve(data);
+        }
+      });
+    });
+    req.on("error", (err) => {
+      clearTimeout(timer);
+      if (!settled) {
+        settled = true;
+        reject(timedOut ? new Error("Request timed out") : err);
+      }
+    });
+  });
+}
 function readRaw(filePath) {
   try {
     const stat = fs3.statSync(filePath);
@@ -4455,9 +4628,37 @@ function indexFolder(absFolder, recursive, exclude) {
   }
   return blocks;
 }
-function readDocSources(runbooks, workspaceRoot) {
-  return runbooks.map((entry) => {
+async function readDocSources(runbooks, workspaceRoot) {
+  const results = [];
+  for (const entry of runbooks) {
     const sourcePath = entry.path;
+    if (sourcePath.startsWith("http://")) {
+      results.push({ sourcePath, blocks: [], error: "only https:// URLs are accepted" });
+      continue;
+    }
+    if (isRemoteUrl(sourcePath)) {
+      try {
+        const raw = await fetchRemoteRunbook(sourcePath);
+        const fileName = path3.basename(sourcePath) || sourcePath;
+        const blocks = parseBlocks(raw, fileName, sourcePath);
+        results.push({ sourcePath, blocks });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        let errorText;
+        if (msg === "Request timed out") {
+          errorText = "request timed out";
+        } else if (msg.startsWith("HTTP ")) {
+          const code = msg.slice(5);
+          errorText = code === "404" ? "not found (404)" : `HTTP error (${code})`;
+        } else if (msg.includes("Only raw.githubusercontent.com")) {
+          errorText = "URL not supported \u2014 use raw.githubusercontent.com";
+        } else {
+          errorText = "could not fetch (network error)";
+        }
+        results.push({ sourcePath, blocks: [], error: errorText });
+      }
+      continue;
+    }
     const abs = path3.isAbsolute(sourcePath) ? sourcePath : path3.join(workspaceRoot, sourcePath);
     let stat;
     try {
@@ -4465,15 +4666,18 @@ function readDocSources(runbooks, workspaceRoot) {
     } catch {
     }
     if (!stat) {
-      return { sourcePath, blocks: [], error: `Not found: ${sourcePath}` };
+      results.push({ sourcePath, blocks: [], error: `Not found: ${sourcePath}` });
+      continue;
     }
     if (stat.isDirectory()) {
-      return { sourcePath, blocks: indexFolder(abs, entry.recursive, entry.exclude) };
+      results.push({ sourcePath, blocks: indexFolder(abs, entry.recursive, entry.exclude) });
     } else if (stat.isFile()) {
-      return { sourcePath, blocks: indexFile(abs, path3.basename(abs)) };
+      results.push({ sourcePath, blocks: indexFile(abs, path3.basename(abs)) });
+    } else {
+      results.push({ sourcePath, blocks: [], error: `Not a file or folder: ${sourcePath}` });
     }
-    return { sourcePath, blocks: [], error: `Not a file or folder: ${sourcePath}` };
-  });
+  }
+  return results;
 }
 
 // src/awsReader.ts
@@ -4556,17 +4760,19 @@ var NearVarPanel = class {
   static viewType = "nearvar.panel";
   _view;
   _yamlWatcher;
+  _homeYamlWatcher;
   _docWatchers = [];
   _activeFolder;
+  _yamlWasDeleted = false;
   async resolveWebviewView(webviewView, _context, _token) {
     this._view = webviewView;
     webviewView.webview.options = { enableScripts: true };
     this._activeFolder = await this._resolveFolder();
-    webviewView.webview.html = this._getHtml(webviewView.webview);
+    webviewView.webview.html = await this._getHtml(webviewView.webview);
     webviewView.webview.onDidReceiveMessage(async (msg) => {
       switch (msg.command) {
         case "createConfig":
-          this._createNearvarYaml();
+          this._createNearvarYaml(msg.target === "workspace" ? "workspace" : "home");
           break;
         case "paste": {
           if (typeof msg.value !== "string") {
@@ -4599,8 +4805,20 @@ var NearVarPanel = class {
       );
       this._yamlWatcher.onDidCreate(() => this._refresh());
       this._yamlWatcher.onDidChange(() => this._refresh());
-      this._yamlWatcher.onDidDelete(() => this._refresh());
+      this._yamlWatcher.onDidDelete(() => {
+        this._yamlWasDeleted = true;
+        this._refresh();
+      });
     }
+    this._homeYamlWatcher = vscode.workspace.createFileSystemWatcher(
+      new vscode.RelativePattern(vscode.Uri.file(os3.homedir()), "nearvar.yaml")
+    );
+    this._homeYamlWatcher.onDidCreate(() => this._refresh());
+    this._homeYamlWatcher.onDidChange(() => this._refresh());
+    this._homeYamlWatcher.onDidDelete(() => {
+      this._yamlWasDeleted = true;
+      this._refresh();
+    });
     this._setupDocWatchers();
     const editorSub = vscode.window.onDidChangeActiveTextEditor(() => {
       if (!this._hasConfig() && this._view) {
@@ -4608,38 +4826,45 @@ var NearVarPanel = class {
         void this._view.webview.postMessage({ command: "updateCreateHint", path: folderPath });
       }
     });
+    const workspaceFolderSub = vscode.workspace.onDidChangeWorkspaceFolders(async () => {
+      this._activeFolder = await this._resolveFolder();
+      this._resetYamlWatcher();
+      void this._refresh();
+    });
     webviewView.onDidDispose(() => {
       editorSub.dispose();
+      workspaceFolderSub.dispose();
       this._yamlWatcher?.dispose();
       this._yamlWatcher = void 0;
+      this._homeYamlWatcher?.dispose();
+      this._homeYamlWatcher = void 0;
       this._docWatchers.forEach((w) => w.dispose());
       this._docWatchers = [];
       this._view = void 0;
     });
   }
-  _refresh() {
+  async _refresh() {
     this._docWatchers.forEach((w) => w.dispose());
     this._docWatchers = [];
     if (this._view) {
-      this._view.webview.html = this._getHtml(this._view.webview);
+      this._view.webview.html = await this._getHtml(this._view.webview);
     }
     this._setupDocWatchers();
   }
   _setupDocWatchers() {
-    if (!this._hasConfig()) {
+    const { config } = this._loadActiveConfig();
+    if (!config) {
       return;
     }
-    const p = this._configPath();
-    const result = loadConfig(p);
-    if (!result.ok) {
-      return;
-    }
-    const workspaceRoot = this._activeFolder?.uri.fsPath;
-    if (!workspaceRoot) {
-      return;
-    }
-    for (const entry of result.config.sources.runbooks) {
-      const abs = path5.isAbsolute(entry.path) ? entry.path : path5.join(workspaceRoot, entry.path);
+    const wsRoot = this._activeFolder?.uri.fsPath;
+    for (const entry of config.sources.runbooks) {
+      if (isRemoteUrl(entry.path) || entry.path.startsWith("http://")) {
+        continue;
+      }
+      const abs = path5.isAbsolute(entry.path) ? entry.path : wsRoot ? path5.join(wsRoot, entry.path) : void 0;
+      if (!abs) {
+        continue;
+      }
       let stat;
       try {
         stat = fs5.statSync(abs);
@@ -4690,6 +4915,9 @@ var NearVarPanel = class {
     return path5.join(this._activeFolder.uri.fsPath, "nearvar.yaml");
   }
   _hasConfig() {
+    if (fs5.existsSync(path5.join(os3.homedir(), "nearvar.yaml"))) {
+      return true;
+    }
     const p = this._configPath();
     if (!p) {
       return false;
@@ -4700,6 +4928,74 @@ var NearVarPanel = class {
     } catch {
       return false;
     }
+  }
+  _loadActiveConfig() {
+    const homePath = path5.join(os3.homedir(), "nearvar.yaml");
+    const wsPath = this._configPath();
+    const homeExists = fs5.existsSync(homePath);
+    const wsExists = wsPath ? fs5.existsSync(wsPath) : false;
+    if (!homeExists && !wsExists) {
+      return { source: "none" };
+    }
+    if (homeExists && !wsExists) {
+      const r = loadConfig(homePath);
+      if (!r.ok) {
+        return { error: r.error, source: "home" };
+      }
+      const homedir5 = os3.homedir();
+      return {
+        config: {
+          ...r.config,
+          sources: {
+            ...r.config.sources,
+            runbooks: r.config.sources.runbooks.map((e) => ({
+              ...e,
+              path: path5.isAbsolute(e.path) ? e.path : path5.join(homedir5, e.path)
+            }))
+          }
+        },
+        source: "home"
+      };
+    }
+    if (!homeExists && wsExists) {
+      const r = loadConfig(wsPath);
+      return r.ok ? { config: r.config, source: "workspace" } : { error: r.error, source: "workspace" };
+    }
+    const homeR = loadConfig(homePath);
+    const wsR = loadConfig(wsPath);
+    if (!homeR.ok && !wsR.ok) {
+      return { error: `Home: ${homeR.error} | Workspace: ${wsR.error}`, source: "both" };
+    }
+    if (!homeR.ok) {
+      return wsR.ok ? { config: wsR.config, error: homeR.error, source: "both" } : { error: homeR.error, source: "both" };
+    }
+    if (!wsR.ok) {
+      return { config: homeR.config, error: wsR.error, source: "both" };
+    }
+    const home = homeR.config;
+    const ws = wsR.config;
+    const homedir4 = os3.homedir();
+    const homeRunbooks = home.sources.runbooks.map((e) => ({
+      ...e,
+      path: path5.isAbsolute(e.path) ? e.path : path5.join(homedir4, e.path)
+    }));
+    const homeEnv = home.sources.env.map(
+      (e) => path5.isAbsolute(e) ? e : path5.join(homedir4, e)
+    );
+    return {
+      config: {
+        sources: {
+          runbooks: [...homeRunbooks, ...ws.sources.runbooks],
+          bash: home.sources.bash || ws.sources.bash,
+          env: [...homeEnv, ...ws.sources.env],
+          aws: home.sources.aws || ws.sources.aws
+        },
+        custom: [...home.custom, ...ws.custom],
+        sections: [...home.sections, ...ws.sections],
+        ui: ws.ui
+      },
+      source: "both"
+    };
   }
   _getCreateFolder() {
     const activeUri = vscode.window.activeTextEditor?.document.uri;
@@ -4720,7 +5016,10 @@ var NearVarPanel = class {
       );
       this._yamlWatcher.onDidCreate(() => this._refresh());
       this._yamlWatcher.onDidChange(() => this._refresh());
-      this._yamlWatcher.onDidDelete(() => this._refresh());
+      this._yamlWatcher.onDidDelete(() => {
+        this._yamlWasDeleted = true;
+        this._refresh();
+      });
     }
   }
   async switchFolder() {
@@ -4740,15 +5039,11 @@ var NearVarPanel = class {
     if (pick) {
       this._activeFolder = pick.folder;
       this._resetYamlWatcher();
-      this._refresh();
+      void this._refresh();
     }
   }
-  _createNearvarYaml() {
-    const folderPath = this._getCreateFolder();
-    if (!folderPath) {
-      vscode.window.showErrorMessage("NearVar: No workspace folder open. Open a folder first.");
-      return;
-    }
+  _createNearvarYaml(target = "home") {
+    const folderPath = target === "home" ? os3.homedir() : this._getCreateFolder() ?? os3.homedir();
     const p = path5.join(folderPath, "nearvar.yaml");
     if (fs5.existsSync(p)) {
       vscode.workspace.openTextDocument(p).then((doc) => vscode.window.showTextDocument(doc));
@@ -4802,26 +5097,45 @@ var NearVarPanel = class {
       this._activeFolder = newFolder;
       this._resetYamlWatcher();
     }
-    this._refresh();
+    void this._refresh();
     vscode.workspace.openTextDocument(p).then(
       (doc) => vscode.window.showTextDocument(doc)
     );
   }
-  _getHtml(webview) {
+  async _getHtml(webview) {
     const context = vscode.env.remoteName ? escapeHtml(vscode.env.remoteName) : "local";
-    const homedir4 = escapeHtml(os3.homedir());
-    let configError;
-    let config;
-    if (this._hasConfig()) {
-      const p = this._configPath();
-      const result = loadConfig(p);
-      if (result.ok) {
-        config = result.config;
-      } else {
-        configError = result.error;
-      }
+    const { config, error: configError, source } = this._loadActiveConfig();
+    const noWorkspace = !vscode.workspace.workspaceFolders?.length;
+    let sourceLabel;
+    let workspaceRoot;
+    if (source === "home") {
+      sourceLabel = "~";
+      workspaceRoot = os3.homedir();
+    } else if (source === "workspace") {
+      sourceLabel = escapeHtml(this._activeFolder?.uri.fsPath ?? os3.homedir());
+      workspaceRoot = this._activeFolder?.uri.fsPath;
+    } else if (source === "both") {
+      sourceLabel = "~ + workspace";
+      workspaceRoot = this._activeFolder?.uri.fsPath;
+    } else {
+      sourceLabel = noWorkspace ? "no folder" : escapeHtml(this._activeFolder?.uri.fsPath ?? os3.homedir());
+      workspaceRoot = void 0;
     }
-    const body = this._hasConfig() ? this._mainContent(config, configError) : this._welcomeCard();
+    let body;
+    if (source !== "none") {
+      this._yamlWasDeleted = false;
+      body = await this._mainContent(config, configError, workspaceRoot);
+    } else if (noWorkspace) {
+      const terminalConfig = {
+        sources: { runbooks: [], bash: true, env: [], aws: true },
+        custom: [],
+        sections: [],
+        ui: { collapsed: [] }
+      };
+      body = this._noFolderCard() + await this._mainContent(terminalConfig, void 0, void 0);
+    } else {
+      body = this._welcomeCard();
+    }
     const searchBar = config ? `<div class="search-bar"><input type="text" id="nv-search" placeholder="Filter..." autocomplete="off" spellcheck="false"></div>` : "";
     return `<!DOCTYPE html>
 <html>
@@ -4861,6 +5175,12 @@ var NearVarPanel = class {
   .block-source { font-weight: normal; color: var(--vscode-descriptionForeground); font-size: 10px; }
   .block-lines { padding-left: 16px; }
   .source-error { font-size: 11px; color: var(--vscode-editorWarning-foreground, #cca700); padding: 3px 4px; }
+  .file-group { margin: 4px 0 2px; }
+  .file-group-header { display: flex; align-items: center; padding: 3px 4px; border-radius: 3px; cursor: pointer; gap: 4px; }
+  .file-group-header:hover { background: var(--vscode-list-hoverBackground); }
+  .file-group-arrow { flex-shrink: 0; font-size: 9px; width: 10px; text-align: center; color: var(--vscode-descriptionForeground); }
+  .file-group-name { font-size: 10px; font-weight: 600; color: var(--vscode-descriptionForeground); }
+  .file-group-items { padding-left: 8px; }
   .search-bar { padding: 5px 8px; border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border); }
   #nv-search { width: 100%; box-sizing: border-box; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border, transparent); padding: 4px 6px; font-family: var(--vscode-font-family); font-size: 12px; border-radius: 2px; outline: none; }
   #nv-search:focus { border-color: var(--vscode-focusBorder); }
@@ -4870,7 +5190,7 @@ var NearVarPanel = class {
 </head>
 <body>
   <div class="ctx-bar">
-    <span>${context}</span><span class="ctx-sep">\xB7</span><span>${homedir4}</span>
+    <span>${context}</span><span class="ctx-sep">\xB7</span><span>${sourceLabel}</span>
   </div>
   ${searchBar}
   <div class="content">
@@ -4878,7 +5198,7 @@ var NearVarPanel = class {
   </div>
   <script>
     const vscode = acquireVsCodeApi();
-    function createConfig() { vscode.postMessage({ command: 'createConfig' }); }
+    function createConfig(target) { vscode.postMessage({ command: 'createConfig', target: target || 'home' }); }
     function paste(value) { vscode.postMessage({ command: 'paste', value: value }); }
     function copy(value) { vscode.postMessage({ command: 'copy', value: value }); }
     document.querySelectorAll('.item').forEach(function(el) {
@@ -4901,6 +5221,14 @@ var NearVarPanel = class {
         arrow.textContent = lines.hidden ? '\u25B6' : '\u25BC';
       });
     });
+    document.querySelectorAll('.file-group-header').forEach(function(h) {
+      h.addEventListener('click', function() {
+        var items = this.nextElementSibling;
+        var arrow = this.querySelector('.file-group-arrow');
+        items.hidden = !items.hidden;
+        arrow.textContent = items.hidden ? '\u25B6' : '\u25BC';
+      });
+    });
     document.querySelectorAll('.section-label').forEach(function(label) {
       label.addEventListener('click', function() {
         var items = this.nextElementSibling;
@@ -4919,7 +5247,7 @@ var NearVarPanel = class {
         var trimmed = val.trim();
         if (_collapseSnapshot === null && trimmed !== '') {
           _collapseSnapshot = new Map();
-          document.querySelectorAll('.section-items').forEach(function(si) {
+          document.querySelectorAll('.section-items, .file-group-items').forEach(function(si) {
             _collapseSnapshot.set(si, si.hidden);
             si.hidden = false;
           });
@@ -4934,6 +5262,22 @@ var NearVarPanel = class {
         document.querySelectorAll('.section-items > .block-group').forEach(function(el) {
           el.hidden = !isEmpty && !(el.dataset.searchTerms || '').toLowerCase().includes(q);
         });
+        document.querySelectorAll('.file-group-items > .item').forEach(function(el) {
+          el.hidden = !isEmpty && !(el.dataset.searchTerms || '').toLowerCase().includes(q);
+        });
+        document.querySelectorAll('.file-group-items > .block-group').forEach(function(el) {
+          el.hidden = !isEmpty && !(el.dataset.searchTerms || '').toLowerCase().includes(q);
+        });
+        document.querySelectorAll('.section-items > .file-group').forEach(function(el) {
+          if (isEmpty) {
+            el.hidden = false;
+            var fgi = el.querySelector('.file-group-items');
+            if (fgi && _collapseSnapshot !== null) { fgi.hidden = _collapseSnapshot.get(fgi) || false; }
+          } else {
+            var hasVisible = Array.from(el.querySelectorAll('.file-group-items > .item, .file-group-items > .block-group')).some(function(c) { return !c.hidden; });
+            el.hidden = !hasVisible;
+          }
+        });
         document.querySelectorAll('.section-wrapper').forEach(function(wrapper) {
           var sectionItems = wrapper.querySelector('.section-items');
           if (!sectionItems) { return; }
@@ -4944,7 +5288,7 @@ var NearVarPanel = class {
             wrapper.hidden = false;
             return;
           }
-          var hasVisible = Array.from(sectionItems.querySelectorAll(':scope > .item, :scope > .block-group')).some(function(c) { return !c.hidden; });
+          var hasVisible = Array.from(sectionItems.querySelectorAll(':scope > .item, :scope > .block-group, :scope > .file-group')).some(function(c) { return !c.hidden; });
           wrapper.hidden = !hasVisible;
         });
         if (isEmpty) { _collapseSnapshot = null; }
@@ -4953,7 +5297,7 @@ var NearVarPanel = class {
     window.addEventListener('message', function(event) {
       var msg = event.data;
       if (msg.command === 'updateCreateHint') {
-        var hint = document.getElementById('nv-create-hint');
+        var hint = document.getElementById('nv-create-hint-ws');
         if (hint) { hint.textContent = 'Will be created in: ' + msg.path; }
       }
     });
@@ -4961,17 +5305,31 @@ var NearVarPanel = class {
 </body>
 </html>`;
   }
-  _welcomeCard() {
-    const createPath = this._getCreateFolder();
-    const hint = createPath ? `<p id="nv-create-hint" style="margin: 6px 0 0; font-size: 11px; color: #e5c07b;">Will be created in: ${escapeHtml(createPath)}</p>` : "";
-    return `<div class="welcome-card">
-    <h2>Welcome to NearVar</h2>
-    <p>Create a <code>nearvar.yaml</code> in your workspace to configure sources.</p>
-    <button onclick="createConfig()">Create nearvar.yaml</button>
-    ${hint}
+  _noFolderCard() {
+    const deletedNote = this._yamlWasDeleted ? `<p style="margin: 0 0 8px; font-size: 12px; font-weight: 600; color: var(--vscode-editorWarning-foreground, #e5c07b);">nearvar.yaml was moved or deleted.</p>
+    <p style="margin: 0 0 10px; font-size: 11px; color: var(--vscode-descriptionForeground);">Create a new one or restore the file to continue.</p>` : "";
+    return `<div class="welcome-card" style="margin-bottom: 8px;">
+    ${deletedNote}<h2>No folder open</h2>
+    <p>NearVar can still surface your environment.</p>
+    <p style="margin: 0; font-size: 11px; color: var(--vscode-descriptionForeground);">Bash variables and AWS profiles are shown below. Open a folder or add <code>~/nearvar.yaml</code> to enable runbook indexing and .env files.</p>
   </div>`;
   }
-  _mainContent(config, error) {
+  _welcomeCard() {
+    const wsPath = escapeHtml(this._getCreateFolder() ?? os3.homedir());
+    const deletedBanner = this._yamlWasDeleted ? `<div style="margin-bottom: 12px; padding: 8px 10px; border: 1px solid var(--vscode-inputValidation-warningBorder, #e5c07b); border-radius: 3px;">
+      <p style="margin: 0 0 4px; font-size: 12px; font-weight: 600;">nearvar.yaml was moved or deleted.</p>
+      <p style="margin: 0; font-size: 11px; color: var(--vscode-descriptionForeground);">Create a new one or restore the file to continue.</p>
+    </div>` : "";
+    return `<div class="welcome-card">
+    ${deletedBanner}<h2>Welcome to NearVar</h2>
+    <p>Create a <code>nearvar.yaml</code> to configure sources.</p>
+    <button onclick="createConfig('home')">Create ~/nearvar.yaml</button>
+    <p style="margin: 6px 0 10px; font-size: 11px; color: #e5c07b;">Recommended: create in your home folder so NearVar works across all your projects</p>
+    <button style="opacity: 0.7;" onclick="createConfig('workspace')">Create in workspace</button>
+    <p id="nv-create-hint-ws" style="margin: 4px 0 0; font-size: 11px; color: var(--vscode-descriptionForeground);">Will be created in: ${wsPath}</p>
+  </div>`;
+  }
+  async _mainContent(config, error, workspaceRoot) {
     const errorCard = error ? `<div class="error-card"><div class="error-title">nearvar.yaml error</div><div class="error-msg">${escapeHtml(error)}</div></div>` : "";
     if (!config) {
       return errorCard;
@@ -4989,9 +5347,10 @@ var NearVarPanel = class {
     };
     const varItem = (v) => {
       const eName = escapeHtml(v.name);
+      const sensitive = isSensitive(v.name);
       const pasteVal = v.dynamic ? `$${eName}` : escapeHtml(v.value);
-      const valueSpan = v.dynamic ? `<span class="item-value dynamic">&#9888; dynamic</span>` : `<span class="item-value">${escapeHtml(v.value)}</span>`;
-      const et = v.dynamic ? eName : escapeHtml(v.name + "|" + v.value);
+      const valueSpan = v.dynamic ? `<span class="item-value dynamic">&#9888; dynamic</span>` : sensitive ? `<span class="item-value">\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022</span>` : `<span class="item-value">${escapeHtml(v.value)}</span>`;
+      const et = v.dynamic || sensitive ? eName : escapeHtml(v.name + "|" + v.value);
       return `<div class="item" data-value="${pasteVal}" data-search-terms="${et}"><div class="item-body"><span class="item-label">${eName}</span>` + valueSpan + `</div><button class="copy-btn" data-value="${pasteVal}">Copy</button></div>`;
     };
     const envVarItem = (v) => {
@@ -5002,32 +5361,59 @@ var NearVarPanel = class {
     };
     const bashVars = config.sources.bash ? readBashVars() : [];
     const bashSection = bashVars.length > 0 ? section("Bash Variables", bashVars.map(varItem).join(""), collapsedSet.has("bash")) : "";
-    const workspaceRoot = this._activeFolder?.uri.fsPath;
-    const docResults = workspaceRoot && config.sources.runbooks.length > 0 ? readDocSources(config.sources.runbooks, workspaceRoot) : [];
+    const docResults = workspaceRoot && config.sources.runbooks.length > 0 ? await readDocSources(config.sources.runbooks, workspaceRoot) : [];
     const renderBlock = (b) => {
       const eLabel = escapeHtml(b.label);
-      const eRel = escapeHtml(b.relPath);
       const eAbs = escapeHtml(b.absPath);
       if (b.lines.length === 1) {
         const ev = escapeHtml(b.lines[0]);
         const et = escapeHtml(b.label + "|" + b.lines[0]);
-        return `<div class="item" data-value="${ev}" data-search-terms="${et}" title="${eAbs}"><div class="item-body"><span class="item-label">${eLabel}<span class="block-source"> \xB7 ${eRel}</span></span><span class="item-value">${ev}</span></div><button class="copy-btn" data-value="${ev}">Copy</button></div>`;
+        return `<div class="item" data-value="${ev}" data-search-terms="${et}" title="${eAbs}"><div class="item-body"><span class="item-label">${eLabel}</span><span class="item-value">${ev}</span></div><button class="copy-btn" data-value="${ev}">Copy</button></div>`;
       }
       const children = b.lines.map((line) => {
         const ev = escapeHtml(line);
         return `<div class="item" data-value="${ev}"><div class="item-body"><span class="item-value">${ev}</span></div><button class="copy-btn" data-value="${ev}">Copy</button></div>`;
       }).join("");
       const groupTerms = escapeHtml([b.label, ...b.lines].join("|"));
-      return `<div class="block-group" data-search-terms="${groupTerms}"><div class="block-header" title="${eAbs}"><span class="block-arrow">\u25B6</span><div class="item-body"><span class="item-label">${eLabel}<span class="block-source"> \xB7 ${eRel}</span></span><span class="item-value">${b.lines.length} commands</span></div></div><div class="block-lines" hidden>${children}</div></div>`;
+      return `<div class="block-group" data-search-terms="${groupTerms}"><div class="block-header" title="${eAbs}"><span class="block-arrow">\u25B6</span><div class="item-body"><span class="item-label">${eLabel}</span><span class="item-value">${b.lines.length} commands</span></div></div><div class="block-lines" hidden>${children}</div></div>`;
     };
-    const docItems = docResults.flatMap(
-      (sr) => sr.error ? [`<div class="source-error">&#9888; ${escapeHtml(sr.sourcePath)} \u2014 ${escapeHtml(sr.error)}</div>`] : sr.blocks.map(renderBlock)
-    );
-    const runbooksSection = docItems.length > 0 ? section("Runbooks", docItems.join(""), collapsedSet.has("runbooks")) : "";
+    const uniqueFiles = [...new Set(
+      docResults.filter((sr) => !sr.error).flatMap((sr) => sr.blocks.map((b) => b.absPath))
+    )];
+    const groupByFile = uniqueFiles.length > 1;
+    let runbooksContent;
+    if (!groupByFile) {
+      runbooksContent = docResults.flatMap(
+        (sr) => sr.error ? [`<div class="source-error">&#9888; ${escapeHtml(sr.sourcePath)} \u2014 ${escapeHtml(sr.error)}</div>`] : sr.blocks.map(renderBlock)
+      ).join("");
+    } else {
+      const errorItems = docResults.filter((sr) => sr.error).map((sr) => `<div class="source-error">&#9888; ${escapeHtml(sr.sourcePath)} \u2014 ${escapeHtml(sr.error)}</div>`);
+      const fileMap = /* @__PURE__ */ new Map();
+      for (const sr of docResults) {
+        if (sr.error) {
+          continue;
+        }
+        for (const b of sr.blocks) {
+          const arr = fileMap.get(b.absPath) ?? [];
+          arr.push(b);
+          fileMap.set(b.absPath, arr);
+        }
+      }
+      const fileGroups = [...fileMap.entries()].map(([absPath, blocks]) => {
+        const eFileName = escapeHtml(path5.basename(absPath));
+        const eAbsPath = escapeHtml(absPath);
+        const items = blocks.map(renderBlock).join("");
+        const allTerms = escapeHtml(blocks.flatMap((b) => [b.label, ...b.lines]).join("|"));
+        return `<div class="file-group" data-search-terms="${allTerms}"><div class="file-group-header" title="${eAbsPath}"><span class="file-group-arrow">\u25BC</span><span class="file-group-name">${eFileName}</span></div><div class="file-group-items">${items}</div></div>`;
+      });
+      runbooksContent = [...errorItems, ...fileGroups].join("");
+    }
+    const runbooksSection = runbooksContent ? section("Runbooks", runbooksContent, collapsedSet.has("runbooks")) : "";
     const envVars = [];
-    if (workspaceRoot) {
-      for (const rel of config.sources.env) {
-        envVars.push(...readEnvFile(path5.join(workspaceRoot, rel), path5.basename(rel)));
+    for (const rel of config.sources.env) {
+      const envPath = path5.isAbsolute(rel) ? rel : workspaceRoot ? path5.join(workspaceRoot, rel) : void 0;
+      if (envPath) {
+        envVars.push(...readEnvFile(envPath, path5.basename(rel)));
       }
     }
     const envSection = envVars.length > 0 ? section(".env Variables", envVars.map(envVarItem).join(""), collapsedSet.has("env")) : "";
@@ -5040,14 +5426,26 @@ var NearVarPanel = class {
       return `<div class="item" data-value="${pasteVal}" data-search-terms="${et}"><div class="item-body"><span class="item-label">${eName}</span>` + regionSpan + `</div><button class="copy-btn" data-value="${pasteVal}">Copy</button></div>`;
     };
     const awsSection = awsProfiles.length > 0 ? section("AWS Profiles", awsProfiles.map(awsProfileItem).join(""), collapsedSet.has("aws")) : "";
+    const customItems = (config.custom ?? []).map((e) => item(e.label, e.value)).join("");
+    const customSection = customItems ? section("Custom", customItems, collapsedSet.has("custom")) : "";
+    const namedSections = (config.sections ?? []).map((sec) => {
+      const cmdItems = sec.commands.map((c) => item(c.label, c.value)).join("");
+      if (!cmdItems) {
+        return "";
+      }
+      const isCollapsed = collapsedSet.has(sec.name) || sec.collapsed === true;
+      return section(sec.name, cmdItems, isCollapsed);
+    }).join("");
+    const hasTailSections = namedSections || customSection;
     return [
       runbooksSection,
       '<div class="divider"></div>',
       bashSection,
       envSection,
       awsSection,
-      '<div class="divider"></div>',
-      section("Custom", item("Running containers", "docker ps -a"), collapsedSet.has("custom"))
+      hasTailSections ? '<div class="divider"></div>' : "",
+      namedSections,
+      customSection
     ].join("");
   }
 };
