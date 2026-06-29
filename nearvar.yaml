@@ -1,19 +1,59 @@
 # nearvar.yaml — NearVar configuration
+#
+# This file can live in ~/nearvar.yaml (recommended — works across all projects)
+# or in your workspace root. Both locations are loaded and merged when present.
+#
+# See: https://github.com/rehmansherazi/nearvar
+
 sources:
   runbooks:
-    # Shorthand — index a single file directly
+    # Single local file
     # - ./runbooks/deploy.md
-    #
-    # Shorthand — index all .md files in a folder (recursive)
-    # - ~/oncall/playbooks/procedures/
-    #
-    # Full options — folder with recursive and exclude control
+
+    # Local folder — indexes all .md files recursively
+    # - ~/oncall/playbooks/
+
+    # Local folder with options
     # - path: ~/oncall/playbooks/
-    #   recursive: false     # top-level files only
+    #   recursive: false       # top-level files only
     #   exclude:
-    #     - "*.draft.md"     # skip draft files
-    #     - "archive/*"      # skip archive subfolder
+    #     - "*.draft.md"
+    #     - "archive/*"
+
+    # Public GitHub raw file URL (raw.githubusercontent.com only)
+    # - https://raw.githubusercontent.com/org/repo/main/runbook.md
+
     []
-  bash: true
-  env: []
-    # aws: true
+
+  bash: true            # read ~/.bashrc, ~/.bash_profile, ~/.bash_login
+  env: []               # .env files relative to workspace root
+  aws: true             # read ~/.aws/config profiles
+
+# Custom named sections — define your own collapsible command groups
+# sections:
+#   - name: Production
+#     commands:
+#       - label: Check pod status
+#         value: kubectl get pods -n production
+#       - label: Tail API logs
+#         value: kubectl logs -n production -l app=api --follow
+#   - name: Database
+#     collapsed: true
+#     commands:
+#       - label: Connection count
+#         value: psql -h db.internal -c 'SELECT count(*) FROM pg_stat_activity'
+
+ui:
+  # Sections collapsed by default — expand by clicking the header
+  # Valid values: runbooks, bash, env, aws, custom, or any sections.name value
+  collapsed: []
+
+# ─────────────────────────────────────────────────────────────
+# Quick start with realistic demo data:
+#
+#   bash demoscripts/nearvar_demo_setup.sh    # populate demo data
+#   bash demoscripts/nearvar_demo_cleanup.sh  # remove demo data
+#
+# Demo scripts live in demoscripts/ in the NearVar repo:
+#   https://github.com/rehmansherazi/nearvar
+# ─────────────────────────────────────────────────────────────
