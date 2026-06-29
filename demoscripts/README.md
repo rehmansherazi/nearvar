@@ -10,10 +10,14 @@ sandbox is safe to delete entirely as a nuclear cleanup option.
 
 ## Scenarios
 
-| # | Setup script | What it sets up | Shared cleanup |
+| # | Setup script | What it sets up | Cleanup |
 |---|---|---|---|
 | s02 | `setup/s02_full_panel.sh` | runbooks + .env + AWS profiles + nearvar.yaml | `cleanup/s02_full_panel.sh` |
+| s03 | `setup/s03_paste_action.sh` | same as s02 (paste demo needs populated panel) | `cleanup/s03_paste_action.sh` → calls s02 |
+| s04 | `setup/s04_expanded_block.sh` | single runbook file with multi-command blocks | `cleanup/s04_expanded_block.sh` |
+| s05 | `setup/s05_codelens.sh` | deploy.md with 3 fenced blocks for CodeLens | `cleanup/s05_codelens.sh` |
 | s06 | `setup/s06_config.sh` | comprehensive nearvar.yaml (all options) | `cleanup/s06_config.sh` |
+| s07 | `setup/s07_dynamic_badge.sh` | bash exports including `$(date +%s)` dynamic var | `cleanup/s07_dynamic_badge.sh` |
 | s08 | `setup/s08_yaml_config.sh` | same as s06 (different screenshot angle) | `cleanup/s08_yaml_config.sh` → calls s06 |
 | s09 | `setup/s09_yaml_sidebyside.sh` | s02 data + s06-style nearvar.yaml together | `cleanup/s09_yaml_sidebyside.sh` |
 | s10 | `setup/s10_named_sections.sh` | 3 named sections (Production, Database, GPU) | `cleanup/s10_named_sections.sh` |

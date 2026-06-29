@@ -23,11 +23,14 @@ run_cleanup() {
     echo ""
 }
 
-run_cleanup "s02_full_panel.sh"    "s02 full panel"
-run_cleanup "s06_config.sh"        "s06 config"
-run_cleanup "s09_yaml_sidebyside.sh" "s09 side-by-side"
-run_cleanup "s10_named_sections.sh" "s10 named sections"
-run_cleanup "s11_file_grouping.sh" "s11 file grouping"
+run_cleanup "s02_full_panel.sh"       "s02 full panel"
+run_cleanup "s04_expanded_block.sh"   "s04 expanded block"
+run_cleanup "s05_codelens.sh"         "s05 codelens"
+run_cleanup "s06_config.sh"           "s06 config"
+run_cleanup "s07_dynamic_badge.sh"    "s07 dynamic badge"
+run_cleanup "s09_yaml_sidebyside.sh"  "s09 side-by-side"
+run_cleanup "s10_named_sections.sh"   "s10 named sections"
+run_cleanup "s11_file_grouping.sh"    "s11 file grouping"
 run_cleanup "s12_sensitive_masking.sh" "s12 sensitive masking"
 
 # Nuclear option: remove sandbox directory entirely if it still exists
